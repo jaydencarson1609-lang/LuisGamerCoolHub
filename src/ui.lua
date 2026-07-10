@@ -1,15 +1,13 @@
--- LuisGamerCoolHub | Press K to toggle
+-- ui.lua - Main GUI for LuisGamerCoolHub
 
-local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
-local player = Players.LocalPlayer
 local gui = Instance.new("ScreenGui")
 gui.Name = "LuisGamerCoolHub"
 gui.ResetOnSpawn = false
 gui.Parent = game:GetService("CoreGui")
 
--- MainFrame
+-- MainFrame (your original)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 677, 0, 406)
@@ -19,7 +17,7 @@ MainFrame.BorderSizePixel = 0
 MainFrame.Visible = false
 MainFrame.Parent = gui
 
--- Tab Holder
+-- TabHolder + ScrollingFrame (your original)
 local TabHolder = Instance.new("Frame")
 TabHolder.Name = "TabHolder"
 TabHolder.Size = UDim2.new(0, 171, 0, 406)
@@ -32,13 +30,13 @@ ScrollingFrame.BackgroundTransparency = 1
 ScrollingFrame.ScrollBarThickness = 6
 ScrollingFrame.Parent = TabHolder
 
-local ListLayout = Instance.new("UIListLayout")
-ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-ListLayout.Padding = UDim.new(0, 4)
-ListLayout.Parent = ScrollingFrame
+local UIListLayout = Instance.new("UIListLayout", ScrollingFrame)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 6)
 
--- Content Frame
+-- Your TabButtonTemplate should already be inside ScrollingFrame
+
+-- ContentFrame
 local ContentFrame = Instance.new("Frame")
 ContentFrame.Name = "ContentFrame"
 ContentFrame.Size = UDim2.new(0, 517, 0, 406)
@@ -54,87 +52,22 @@ ContentHolder.Position = UDim2.new(0.075, 0, 0.18, 0)
 ContentHolder.BackgroundTransparency = 1
 ContentHolder.Parent = ContentFrame
 
-local ContentList = Instance.new("UIListLayout")
+local ContentList = Instance.new("UIListLayout", ContentHolder)
 ContentList.SortOrder = Enum.SortOrder.LayoutOrder
-ContentList.Padding = UDim.new(0, 8)
-ContentList.Parent = ContentHolder
+ContentList.Padding = UDim.new(0, 10)
 
--- ==================== ELEMENTS ====================
-local Elements = {}
+-- Load Elements
+local Elements = loadstring(game:HttpGet("https://raw.githubusercontent.com/jaydenkarson1609-lang/LuisGamerCoolHub/refs/heads/main/src/elements.lua"))()
 
--- Tab Button
-function Elements:AddTab(name)
-	local tab = ScrollingFrame:FindFirstChild("TabButtonTemplate"):Clone()
-	tab.Name = name .. "Tab"
-	tab.Text = name
-	tab.Visible = true
-	tab.Parent = ScrollingFrame
-	return tab
-end
-
--- Button
-function Elements:AddButton(parent, text, callback)
-	local holder = ContentHolder:FindFirstChild("ButtonPlaceHolder"):Clone()
-	holder.Name = text .. "_Button"
-	holder.TextButton.Text = text
-	holder.Parent = parent
-	
-	holder.TextButton.MouseButton1Click:Connect(function()
-		callback()
-	end)
-	return holder
-end
-
--- Toggle / Switch
-function Elements:AddToggle(parent, text, default, callback)
-	local holder = ContentHolder:FindFirstChild("SwitchButtonPlaceHolder"):Clone()
-	holder.Name = text .. "_Toggle"
-	holder.Parent = parent
-	
-	holder.Name.Text = text
-	
-	local toggleBtn = holder["On/OffButton"]
-	local state = default or false
-	
-	local function UpdateVisual()
-		if state then
-			toggleBtn.Text = "ON"
-			toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
-		else
-			toggleBtn.Text = "OFF"
-			toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-		end
-	end
-	
-	UpdateVisual()
-	
-	toggleBtn.MouseButton1Click:Connect(function()
-		state = not state
-		UpdateVisual()
-		if callback then callback(state) end
-	end)
-	
-	return holder
-end
-
--- Label
-function Elements:AddLabel(parent, text)
-	local holder = ContentHolder:FindFirstChild("TextPlaceHolder"):Clone()
-	holder.Name = text .. "_Label"
-	holder.Text.Text = text
-	holder.Parent = parent
-	return holder
-end
-
--- ==================== TABS SETUP ====================
-local HomeTab    = Elements:AddTab("Home")
-local GamesTab   = Elements:AddTab("Games")
-local SettingsTab = Elements:AddTab("Settings")
+-- Tabs
+local HomeTab    = Elements:AddTab(ScrollingFrame, ScrollingFrame.TabButtonTemplate, "Home")
+local GamesTab   = Elements:AddTab(ScrollingFrame, ScrollingFrame.TabButtonTemplate, "Games")
+local SettingsTab = Elements:AddTab(ScrollingFrame, ScrollingFrame.TabButtonTemplate, "Settings")
 
 local function ClearContent()
-	for _, child in pairs(ContentHolder:GetChildren()) do
-		if child:IsA("Frame") and child.Name ~= "UIListLayout" then
-			child:Destroy()
+	for _, v in pairs(ContentHolder:GetChildren()) do
+		if v:IsA("Frame") and v.Name ~= "UIListLayout" then
+			v:Destroy()
 		end
 	end
 end
@@ -142,49 +75,35 @@ end
 HomeTab.MouseButton1Click:Connect(function()
 	ClearContent()
 	ContentFrame.Visible = true
-	
-	Elements:AddLabel(ContentHolder, "Welcome to LuisGamerCoolHub!")
-	Elements:AddLabel(ContentHolder, "Made by LuisGamerCool")
-	
-	Elements:AddButton(ContentHolder, "Click Me", function()
-		print("Button Pressed!")
-	end)
-	
-	Elements:AddToggle(ContentHolder, "Auto Something", false, function(state)
-		print("Toggle changed to:", state)
-	end)
+	Elements:AddLabel(ContentHolder, ContentHolder.TextPlaceHolder, "Welcome to LuisGamerCoolHub!")
+	Elements:AddButton(ContentHolder, ContentHolder.ButtonPlaceHolder, "Test Button", function() print("Button clicked!") end)
+	Elements:AddToggle(ContentHolder, ContentHolder.SwitchButtonPlaceHolder, "Example Toggle", false, function(s) print("Toggle:", s) end)
 end)
 
 GamesTab.MouseButton1Click:Connect(function()
 	ClearContent()
 	ContentFrame.Visible = true
-	Elements:AddLabel(ContentHolder, "Games Section")
-	Elements:AddLabel(ContentHolder, "(Coming Soon)")
+	Elements:AddLabel(ContentHolder, ContentHolder.TextPlaceHolder, "Games Section (Coming Soon)")
 end)
 
 SettingsTab.MouseButton1Click:Connect(function()
 	ClearContent()
 	ContentFrame.Visible = true
-	Elements:AddLabel(ContentHolder, "Settings")
-	
-	Elements:AddToggle(ContentHolder, "Disable 3D Rendering", false, function(s)
-		game:GetService("RunService"):Set3dRenderingEnabled(not s)
+	Elements:AddLabel(ContentHolder, ContentHolder.TextPlaceHolder, "Settings")
+	Elements:AddToggle(ContentHolder, ContentHolder.SwitchButtonPlaceHolder, "Disable 3D", false, function(v)
+		game:GetService("RunService"):Set3dRenderingEnabled(not v)
 	end)
 end)
 
--- ==================== KEYBIND (K) ====================
-local Visible = false
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
+-- Keybind K
+local visible = false
+UserInputService.InputBegan:Connect(function(input, gp)
+	if gp then return end
 	if input.KeyCode == Enum.KeyCode.K then
-		Visible = not Visible
-		MainFrame.Visible = Visible
-		
-		if Visible then
-			HomeTab:Click()  -- Auto open Home
-		end
+		visible = not visible
+		MainFrame.Visible = visible
+		if visible then HomeTab:Click() end
 	end
 end)
 
-print("✅ LuisGamerCoolHub Loaded! Press K to open.")
+print("✅ LuisGamerCoolHub Loaded! Press K")
