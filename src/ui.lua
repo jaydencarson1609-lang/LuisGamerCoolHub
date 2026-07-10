@@ -1,5 +1,10 @@
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
 local UserInputService = game:GetService("UserInputService")
 
+-- Create GUI
 local gui = Instance.new("ScreenGui")
 gui.Name = "LuisGamerCoolHub"
 gui.ResetOnSpawn = false
@@ -30,28 +35,6 @@ local UIList = Instance.new("UIListLayout", ScrollingFrame)
 UIList.SortOrder = Enum.SortOrder.LayoutOrder
 UIList.Padding = UDim.new(0, 6)
 
--- ==================== FIXED: Create all templates here ====================
--- Tab template
-local TabTemplate = Instance.new("TextButton")
-TabTemplate.Name = "TabButtonTemplate"
-TabTemplate.Size = UDim2.new(0, 150, 0, 40)
-TabTemplate.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-TabTemplate.BorderSizePixel = 0
-TabTemplate.TextColor3 = Color3.fromRGB(255, 255, 255)
-TabTemplate.Font = Enum.Font.GothamBold
-TabTemplate.TextSize = 16
-TabTemplate.Visible = false
-TabTemplate.Parent = ScrollingFrame
-
--- Label template
-local TextPlaceHolder = Instance.new("Frame")
-TextPlaceHolder.Name = "TextPlaceHolder"
-TextPlaceHolder.Size = UDim2.new(0, 450, 0, 40)
-TextPlaceHolder.BackgroundTransparency = 1
-TextPlaceHolder.Visible = false
-TextPlaceHolder.Parent = ContentHolder  -- will be defined below, but we move creation order
-
--- We need to create ContentHolder first for the other templates
 local ContentFrame = Instance.new("Frame")
 ContentFrame.Name = "ContentFrame"
 ContentFrame.Size = UDim2.new(0, 517, 0, 406)
@@ -71,8 +54,25 @@ local ContentList = Instance.new("UIListLayout", ContentHolder)
 ContentList.SortOrder = Enum.SortOrder.LayoutOrder
 ContentList.Padding = UDim.new(0, 10)
 
--- Now create the content templates (parent them to ContentHolder)
+-- Templates (NOW created AFTER ContentHolder & ScrollingFrame exist)
+local TabTemplate = Instance.new("TextButton")
+TabTemplate.Name = "TabButtonTemplate"
+TabTemplate.Size = UDim2.new(0, 150, 0, 40)
+TabTemplate.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+TabTemplate.BorderSizePixel = 0
+TabTemplate.TextColor3 = Color3.fromRGB(255, 255, 255)
+TabTemplate.Font = Enum.Font.GothamBold
+TabTemplate.TextSize = 16
+TabTemplate.Visible = false
+TabTemplate.Parent = ScrollingFrame
+
+local TextPlaceHolder = Instance.new("Frame")
+TextPlaceHolder.Name = "TextPlaceHolder"
+TextPlaceHolder.Size = UDim2.new(0, 450, 0, 40)
+TextPlaceHolder.BackgroundTransparency = 1
+TextPlaceHolder.Visible = false
 TextPlaceHolder.Parent = ContentHolder
+
 local TextLabel = Instance.new("TextLabel", TextPlaceHolder)
 TextLabel.Name = "Text"
 TextLabel.Size = UDim2.new(1, 0, 1, 0)
@@ -114,17 +114,17 @@ ToggleNameLabel.Font = Enum.Font.Gotham
 ToggleNameLabel.TextSize = 18
 ToggleNameLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-local ToggleBtn = Instance.new("TextButton", SwitchButtonPlaceHolder)
-ToggleBtn.Name = "On/OffButton"
-ToggleBtn.Size = UDim2.new(0.3, 0, 0.7, 0)
-ToggleBtn.Position = UDim2.new(0.65, 0, 0.15, 0)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(164, 58, 58)
-ToggleBtn.BorderSizePixel = 0
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.TextSize = 16
--- ==================== END TEMPLATES ====================
+local ToggleBtnTemplate = Instance.new("TextButton", SwitchButtonPlaceHolder)
+ToggleBtnTemplate.Name = "On/OffButton"
+ToggleBtnTemplate.Size = UDim2.new(0.3, 0, 0.7, 0)
+ToggleBtnTemplate.Position = UDim2.new(0.65, 0, 0.15, 0)
+ToggleBtnTemplate.BackgroundColor3 = Color3.fromRGB(164, 58, 58)
+ToggleBtnTemplate.BorderSizePixel = 0
+ToggleBtnTemplate.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtnTemplate.Font = Enum.Font.GothamBold
+ToggleBtnTemplate.TextSize = 16
 
+-- Elements
 local Elements = {}
 
 function Elements:AddTab(name)
@@ -235,4 +235,4 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
-print("✅ LuisGamerCoolHub Loaded! Press K to open")
+print("✅ LuisGamerCoolHub ui.lua Loaded! Press K to open")
