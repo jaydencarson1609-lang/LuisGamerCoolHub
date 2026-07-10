@@ -1,92 +1,94 @@
---[=[
-LuisGamerCoolHub - Made with love
-]=]
+-- LuisGamerCoolHub | Press K to toggle
 
-local G2L = {};
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 
--- Your original GUI code (I kept your instances)
-G2L["1"] = Instance.new("ScreenGui", game:GetService("CoreGui"));
-G2L["1"]["Name"] = [[LuisGamerCoolHub]];
-G2L["1"]["ZIndexBehavior"] = Enum.ZIndexBehavior.Sibling;
+local player = Players.LocalPlayer
+local gui = Instance.new("ScreenGui")
+gui.Name = "LuisGamerCoolHub"
+gui.ResetOnSpawn = false
+gui.Parent = game:GetService("CoreGui")
 
-G2L["2"] = Instance.new("Frame", G2L["1"]); -- MainFrame
-G2L["2"]["BorderSizePixel"] = 0;
-G2L["2"]["BackgroundColor3"] = Color3.fromRGB(52, 183, 45);
-G2L["2"]["Size"] = UDim2.new(0, 677, 0, 406);
-G2L["2"]["Position"] = UDim2.new(0.312, 0, 0.1696, 0);
-G2L["2"]["Name"] = [[MainFrame]];
+-- MainFrame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 677, 0, 406)
+MainFrame.Position = UDim2.new(0.312, 0, 0.1696, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(52, 183, 45)
+MainFrame.BorderSizePixel = 0
+MainFrame.Visible = false
+MainFrame.Parent = gui
 
--- Remove Logo and Close Button
-if G2L["3"] then G2L["3"]:Destroy() end  -- Logo
-if G2L["5"] then G2L["5"]:Destroy() end  -- Close Button
+-- Tab Holder
+local TabHolder = Instance.new("Frame")
+TabHolder.Name = "TabHolder"
+TabHolder.Size = UDim2.new(0, 171, 0, 406)
+TabHolder.BackgroundTransparency = 1
+TabHolder.Parent = MainFrame
 
-G2L["2"].Visible = false; -- Start hidden
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Size = UDim2.new(0, 160, 0, 406)
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.ScrollBarThickness = 6
+ScrollingFrame.Parent = TabHolder
 
--- TabHolder and ScrollingFrame (your code)
-G2L["7"] = Instance.new("Frame", G2L["2"]);
-G2L["7"]["Name"] = [[TabHolder]];
-G2L["7"]["BackgroundTransparency"] = 1;
-G2L["7"]["Size"] = UDim2.new(0, 171, 0, 406);
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ListLayout.Padding = UDim.new(0, 4)
+ListLayout.Parent = ScrollingFrame
 
-G2L["9"] = Instance.new("ScrollingFrame", G2L["7"]);
-G2L["9"]["Name"] = [[ScrollingFrame]];
-G2L["9"]["Size"] = UDim2.new(0, 160, 0, 406);
-G2L["9"]["BackgroundTransparency"] = 1;
-G2L["9"]["ScrollBarThickness"] = 6;
+-- Content Frame
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Name = "ContentFrame"
+ContentFrame.Size = UDim2.new(0, 517, 0, 406)
+ContentFrame.Position = UDim2.new(0.236, 0, 0, 0)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Visible = false
+ContentFrame.Parent = MainFrame
 
-G2L["a"] = Instance.new("UIListLayout", G2L["9"]);
-G2L["a"]["SortOrder"] = Enum.SortOrder.LayoutOrder;
-G2L["a"]["HorizontalAlignment"] = Enum.HorizontalAlignment.Center;
+local ContentHolder = Instance.new("Frame")
+ContentHolder.Name = "ContentHolder"
+ContentHolder.Size = UDim2.new(0, 477, 0, 333)
+ContentHolder.Position = UDim2.new(0.075, 0, 0.18, 0)
+ContentHolder.BackgroundTransparency = 1
+ContentHolder.Parent = ContentFrame
 
-G2L["b"] = Instance.new("TextButton", G2L["9"]); -- TabButtonTemplate
-G2L["b"]["Name"] = [[TabButtonTemplate]];
-G2L["b"]["Size"] = UDim2.new(0, 147, 0, 44);
-G2L["b"]["BackgroundTransparency"] = 1;
-G2L["b"]["Text"] = [[Home]];
-G2L["b"]["TextColor3"] = Color3.fromRGB(255, 255, 255);
-G2L["b"]["TextScaled"] = true;
+local ContentList = Instance.new("UIListLayout")
+ContentList.SortOrder = Enum.SortOrder.LayoutOrder
+ContentList.Padding = UDim.new(0, 8)
+ContentList.Parent = ContentHolder
 
--- ContentFrame
-G2L["e"] = Instance.new("Frame", G2L["2"]);
-G2L["e"]["Name"] = [[ContentFrame]];
-G2L["e"]["Size"] = UDim2.new(0, 517, 0, 406);
-G2L["e"]["Position"] = UDim2.new(0.23634, 0, 0, 0);
-G2L["e"]["BackgroundTransparency"] = 1;
-G2L["e"].Visible = false;
-
-G2L["12"] = Instance.new("Frame", G2L["e"]); -- ContentHolder
-G2L["12"]["Name"] = [[ContentHolder]];
-G2L["12"]["Size"] = UDim2.new(0, 477, 0, 333);
-G2L["12"]["Position"] = UDim2.new(0.07544, 0, 0.1798, 0);
-G2L["12"]["BackgroundTransparency"] = 1;
-
-local UIList = Instance.new("UIListLayout", G2L["12"]);
-UIList.SortOrder = Enum.SortOrder.LayoutOrder;
-UIList.Padding = UDim.new(0, 5);
-
--- ====================== ELEMENTS SYSTEM ======================
+-- ==================== ELEMENTS ====================
 local Elements = {}
 
+-- Tab Button
 function Elements:AddTab(name)
-	local tab = G2L["b"]:Clone()
+	local tab = ScrollingFrame:FindFirstChild("TabButtonTemplate"):Clone()
+	tab.Name = name .. "Tab"
 	tab.Text = name
-	tab.Name = name.."Tab"
-	tab.Parent = G2L["9"]
+	tab.Visible = true
+	tab.Parent = ScrollingFrame
 	return tab
 end
 
+-- Button
 function Elements:AddButton(parent, text, callback)
-	local holder = G2L["1c"]:Clone() -- ButtonPlaceHolder
+	local holder = ContentHolder:FindFirstChild("ButtonPlaceHolder"):Clone()
+	holder.Name = text .. "_Button"
 	holder.TextButton.Text = text
 	holder.Parent = parent
 	
-	holder.TextButton.MouseButton1Click:Connect(callback)
+	holder.TextButton.MouseButton1Click:Connect(function()
+		callback()
+	end)
 	return holder
 end
 
+-- Toggle / Switch
 function Elements:AddToggle(parent, text, default, callback)
-	local holder = G2L["14"]:Clone() -- SwitchButtonPlaceHolder
-	holder.Name = text
+	local holder = ContentHolder:FindFirstChild("SwitchButtonPlaceHolder"):Clone()
+	holder.Name = text .. "_Toggle"
 	holder.Parent = parent
 	
 	holder.Name.Text = text
@@ -94,7 +96,7 @@ function Elements:AddToggle(parent, text, default, callback)
 	local toggleBtn = holder["On/OffButton"]
 	local state = default or false
 	
-	local function update()
+	local function UpdateVisual()
 		if state then
 			toggleBtn.Text = "ON"
 			toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
@@ -104,90 +106,85 @@ function Elements:AddToggle(parent, text, default, callback)
 		end
 	end
 	
-	update()
+	UpdateVisual()
 	
 	toggleBtn.MouseButton1Click:Connect(function()
 		state = not state
-		update()
+		UpdateVisual()
 		if callback then callback(state) end
 	end)
 	
 	return holder
 end
 
+-- Label
 function Elements:AddLabel(parent, text)
-	local holder = G2L["19"]:Clone() -- TextPlaceHolder
+	local holder = ContentHolder:FindFirstChild("TextPlaceHolder"):Clone()
+	holder.Name = text .. "_Label"
 	holder.Text.Text = text
 	holder.Parent = parent
 	return holder
 end
 
--- ====================== TABS ======================
-local HomeTabBtn   = Elements:AddTab("Home")
-local GamesTabBtn  = Elements:AddTab("Games")
-local SettingsTabBtn = Elements:AddTab("Settings")
+-- ==================== TABS SETUP ====================
+local HomeTab    = Elements:AddTab("Home")
+local GamesTab   = Elements:AddTab("Games")
+local SettingsTab = Elements:AddTab("Settings")
 
-local CurrentContent = nil
-
-local function ShowContent()
-	G2L["e"].Visible = true
+local function ClearContent()
+	for _, child in pairs(ContentHolder:GetChildren()) do
+		if child:IsA("Frame") and child.Name ~= "UIListLayout" then
+			child:Destroy()
+		end
+	end
 end
 
-HomeTabBtn.MouseButton1Click:Connect(function()
-	ShowContent()
-	-- Clear old content
-	for _, v in pairs(G2L["12"]:GetChildren()) do
-		if v:IsA("Frame") and v.Name ~= "UIListLayout" then
-			v:Destroy()
-		end
-	end
+HomeTab.MouseButton1Click:Connect(function()
+	ClearContent()
+	ContentFrame.Visible = true
 	
-	Elements:AddLabel(G2L["12"], "Welcome to LuisGamerCoolHub!")
-	Elements:AddButton(G2L["12"], "Test Button", function()
-		print("Button Clicked!")
+	Elements:AddLabel(ContentHolder, "Welcome to LuisGamerCoolHub!")
+	Elements:AddLabel(ContentHolder, "Made by LuisGamerCool")
+	
+	Elements:AddButton(ContentHolder, "Click Me", function()
+		print("Button Pressed!")
 	end)
-	Elements:AddToggle(G2L["12"], "Auto Farm", false, function(state)
-		print("Auto Farm:", state)
+	
+	Elements:AddToggle(ContentHolder, "Auto Something", false, function(state)
+		print("Toggle changed to:", state)
 	end)
 end)
 
-GamesTabBtn.MouseButton1Click:Connect(function()
-	ShowContent()
-	for _, v in pairs(G2L["12"]:GetChildren()) do
-		if v:IsA("Frame") and v.Name ~= "UIListLayout" then v:Destroy() end
-	end
+GamesTab.MouseButton1Click:Connect(function()
+	ClearContent()
+	ContentFrame.Visible = true
+	Elements:AddLabel(ContentHolder, "Games Section")
+	Elements:AddLabel(ContentHolder, "(Coming Soon)")
+end)
+
+SettingsTab.MouseButton1Click:Connect(function()
+	ClearContent()
+	ContentFrame.Visible = true
+	Elements:AddLabel(ContentHolder, "Settings")
 	
-	Elements:AddLabel(G2L["12"], "Games List Coming Soon...")
-	Elements:AddButton(G2L["12"], "Launch Game", function()
-		print("Launch game clicked")
+	Elements:AddToggle(ContentHolder, "Disable 3D Rendering", false, function(s)
+		game:GetService("RunService"):Set3dRenderingEnabled(not s)
 	end)
 end)
 
-SettingsTabBtn.MouseButton1Click:Connect(function()
-	ShowContent()
-	for _, v in pairs(G2L["12"]:GetChildren()) do
-		if v:IsA("Frame") and v.Name ~= "UIListLayout" then v:Destroy() end
-	end
-	
-	Elements:AddLabel(G2L["12"], "Settings")
-	Elements:AddToggle(G2L["12"], "Disable 3D", false, function(s) print("3D:", s) end)
-end)
+-- ==================== KEYBIND (K) ====================
+local Visible = false
 
--- ====================== KEYBIND (K) ======================
-local UserInputService = game:GetService("UserInputService")
-local MainFrame = G2L["2"]
-
-local visible = false
-
-UserInputService.InputBegan:Connect(function(input, gp)
-	if gp then return end
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
 	if input.KeyCode == Enum.KeyCode.K then
-		visible = not visible
-		MainFrame.Visible = visible
-		if visible then
-			HomeTabBtn:Click() -- Auto open Home tab
+		Visible = not Visible
+		MainFrame.Visible = Visible
+		
+		if Visible then
+			HomeTab:Click()  -- Auto open Home
 		end
 	end
 end)
 
-print("LuisGamerCoolHub Loaded! Press K to open.")
+print("✅ LuisGamerCoolHub Loaded! Press K to open.")
