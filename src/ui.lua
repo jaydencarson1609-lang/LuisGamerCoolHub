@@ -1,3 +1,8 @@
+-- VERIFIED UI.LUA VERSION — SINGLE GUI ONLY
+-- Supported game: current game tab + Settings
+-- Unsupported game: Home + Supported Games + Settings
+-- Removes any older LuisGamerCoolHub GUI before loading.
+
 --[=[
 d888b db db d888888b .d888b. db db db .d8b.
 88' Y8b 88 88 88' VP 8D 88 88 88 d8' `8b
@@ -9,6 +14,108 @@ Y888P ~Y8888P' Y888888P 888888D Y88888P ~Y8888P' YP YP CONVERTER
 -- FIXED VERSION - All game("Service") → game:GetService("Service")
 -- FIXED VERSION - All remote loading now uses game:HttpGet + JSONDecode properly
 -- Teleport now correctly uses TeleportService (ExperienceService was invalid)
+-- CUSTOM TABS - wired to src/elements.lua through Element.ConfigureTabs
+
+--============================================================
+-- SINGLE-GUI PROTECTION
+--============================================================
+
+local PlayersService = game:GetService("Players")
+local HttpServiceForLock = game:GetService("HttpService")
+local LocalPlayerForLock = PlayersService.LocalPlayer
+local PlayerGuiForLock = LocalPlayerForLock:WaitForChild("PlayerGui")
+
+local Environment = (typeof(getgenv) == "function" and getgenv()) or _G
+local SINGLETON_KEY = "__LUIS_GAMER_COOL_HUB_SINGLETON_V3"
+
+local previousState = Environment[SINGLETON_KEY]
+
+if type(previousState) == "table" then
+    if typeof(previousState.Cleanup) == "function" then
+        pcall(previousState.Cleanup)
+    elseif typeof(previousState.Gui) == "Instance" then
+        pcall(function()
+            previousState.Gui:Destroy()
+        end)
+    end
+elseif typeof(previousState) == "Instance" then
+    pcall(function()
+        previousState:Destroy()
+    end)
+end
+
+local runToken = HttpServiceForLock:GenerateGUID(false)
+local singletonState = {
+    Token = runToken,
+    Gui = nil,
+    ToggleConnection = nil,
+}
+
+Environment[SINGLETON_KEY] = singletonState
+
+local function destroyNamedCopies(root)
+    if typeof(root) ~= "Instance" then
+        return
+    end
+
+    local objects = { root }
+
+    local ok, descendants = pcall(function()
+        return root:GetDescendants()
+    end)
+
+    if ok then
+        for _, object in ipairs(descendants) do
+            table.insert(objects, object)
+        end
+    end
+
+    for _, object in ipairs(objects) do
+        if object:IsA("ScreenGui") then
+            local isHub =
+                object.Name == "LuisGamerCoolHub"
+                or object.Name:match("^LuisGamerCoolHub[_%-]")
+                or object:GetAttribute("LuisGamerCoolHub") == true
+
+            if isHub then
+                pcall(function()
+                    object:Destroy()
+                end)
+            end
+        end
+    end
+end
+
+local checkedRoots = {}
+
+local function cleanRoot(root)
+    if typeof(root) ~= "Instance" or checkedRoots[root] then
+        return
+    end
+
+    checkedRoots[root] = true
+    destroyNamedCopies(root)
+end
+
+cleanRoot(PlayerGuiForLock)
+
+pcall(function()
+    cleanRoot(game:GetService("CoreGui"))
+end)
+
+pcall(function()
+    if typeof(gethui) == "function" then
+        cleanRoot(gethui())
+    end
+end)
+
+-- If two copies start on the same frame, only the newest copy continues.
+task.wait()
+
+if Environment[SINGLETON_KEY] ~= singletonState
+    or singletonState.Token ~= runToken then
+    return nil
+end
 
 local G2L = {};
 
@@ -16,6 +123,32 @@ local G2L = {};
 G2L["1"] = Instance.new("ScreenGui", game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"));
 G2L["1"]["Name"] = [[LuisGamerCoolHub]];
 G2L["1"]["ZIndexBehavior"] = Enum.ZIndexBehavior.Sibling;
+G2L["1"]["ResetOnSpawn"] = false;
+G2L["1"]:SetAttribute("LuisGamerCoolHub", true);
+G2L["1"]:SetAttribute("RunToken", runToken);
+
+singletonState.Gui = G2L["1"];
+
+singletonState.Cleanup = function()
+    if singletonState.ToggleConnection then
+        pcall(function()
+            singletonState.ToggleConnection:Disconnect()
+        end)
+        singletonState.ToggleConnection = nil
+    end
+
+    if singletonState.Gui and singletonState.Gui.Parent then
+        pcall(function()
+            singletonState.Gui:Destroy()
+        end)
+    end
+
+    singletonState.Gui = nil
+
+    if Environment[SINGLETON_KEY] == singletonState then
+        Environment[SINGLETON_KEY] = nil
+    end
+end;
 
 -- StarterGui.LuisGamerCoolHub.MainFrame
 G2L["2"] = Instance.new("Frame", G2L["1"]);
@@ -535,6 +668,17 @@ local function Clear()
     end
 end
 
+-- Connect elements.lua to this hub's tab system.
+-- This allows game scripts to call api.Tab("Name", function(tab) ... end).
+Element.ConfigureTabs({
+    TabScroll = TabScroll,
+    TabTemplate = TabTemplate,
+    ContentFrame = ContentFrame,
+    TitleHolder = TitleHolder,
+    ContentHolder = ContentHolder,
+    Clear = Clear,
+})
+
 local function AddTabHover(tab)
     local hoverIn = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     local hoverOut = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -992,30 +1136,17 @@ local function AddSupportedGamesList()
 end
 
 -- Game API
+-- Text/Button/Toggle build inside the currently open page.
+-- Tab creates a completely new sidebar tab through elements.lua.
 local GameApi = {
     Text = AddText,
     Button = AddButton,
     Toggle = AddToggle,
+
+    Tab = function(name, builder)
+        return Element.Tab(name, builder)
+    end,
 }
-
-local function AddCustomTab(name, builder)
-    local tab = AddTab(name)
-    tab.MouseButton1Click:Connect(function()
-        Clear()
-        ContentFrame.Visible = true
-        TitleHolder.Text = name
-        local ok, err = pcall(function()
-            builder(GameApi)
-        end)
-        if not ok then
-            AddText("⚠️ Error building tab: " .. name)
-            warn("[LuisGamerCoolHub] Tab '" .. name .. "' error: " .. tostring(err))
-        end
-    end)
-    return tab
-end
-
-GameApi.Tab = AddCustomTab
 
 -- Load current game's script
 local function LoadCurrentGameScript()
@@ -1051,12 +1182,20 @@ local function LoadCurrentGameScript()
 end
 
 -- ==================== TABS ====================
-local homeTab = AddTab("Home")
-local supportedGamesTab = AddTab("Supported Games")
+-- Supported game:
+--     Current game tab + Settings
+--
+-- Unsupported game:
+--     Home + Supported Games + Settings
+local homeTab
+local supportedGamesTab
 local gameTab
 
 if CurrentGameEntry then
     gameTab = AddTab(CurrentGameEntry.game)
+else
+    homeTab = AddTab("Home")
+    supportedGamesTab = AddTab("Supported Games")
 end
 
 local settingsTab = AddTab("Settings")
@@ -1109,8 +1248,13 @@ local function ShowSettings()
     end)
 end
 
-homeTab.MouseButton1Click:Connect(ShowHome)
-supportedGamesTab.MouseButton1Click:Connect(ShowSupportedGames)
+if homeTab then
+    homeTab.MouseButton1Click:Connect(ShowHome)
+end
+
+if supportedGamesTab then
+    supportedGamesTab.MouseButton1Click:Connect(ShowSupportedGames)
+end
 
 if gameTab then
     gameTab.MouseButton1Click:Connect(ShowGame)
@@ -1132,6 +1276,7 @@ local function OpenGui()
     Fade(1, 0)
 
     if CurrentGameEntry then
+        -- Open the supported game's features automatically.
         ShowGame()
     else
         ShowHome()
@@ -1154,8 +1299,15 @@ local function CloseGui()
 end
 
 -- K keybind
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
+local toggleConnection = UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then
+        return
+    end
+
+    if Environment[SINGLETON_KEY] ~= singletonState then
+        return
+    end
+
     if input.KeyCode == Enum.KeyCode.K then
         if guiVisible then
             CloseGui()
@@ -1164,6 +1316,8 @@ UserInputService.InputBegan:Connect(function(input, gp)
         end
     end
 end)
+
+singletonState.ToggleConnection = toggleConnection
 
 -- CLOSE BUTTON HOLD-TO-CLOSE
 local holding = false
@@ -1216,7 +1370,7 @@ local function FinishHold()
     guiVisible = false
 
     task.wait(0.05)
-    G2L["1"]:Destroy()
+    singletonState.Cleanup()
 end
 
 local function StartHold()
@@ -1248,5 +1402,19 @@ CloseButton.MouseLeave:Connect(function()
     ResetCloseVisual()
 end)
 
-print("✅ LuisGamerCoolHub FIXED loaded! Press K to open, hold X to close")
+G2L["1"].AncestryChanged:Connect(function(_, parent)
+    if parent == nil and Environment[SINGLETON_KEY] == singletonState then
+        if singletonState.ToggleConnection then
+            pcall(function()
+                singletonState.ToggleConnection:Disconnect()
+            end)
+            singletonState.ToggleConnection = nil
+        end
+
+        singletonState.Gui = nil
+        Environment[SINGLETON_KEY] = nil
+    end
+end)
+
+print("✅ LuisGamerCoolHub ui.lua loaded once! Press K to open, hold X to close")
 return G2L["1"];
