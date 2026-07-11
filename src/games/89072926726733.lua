@@ -45,14 +45,12 @@ return function(_, api)
         pcall(function() prompt.HoldDuration = old end)
     end
 
-    -- Only pick best brainrots (skip Legendary & Mythical)
+    -- Only best brainrots (skip Legendary & Mythical)
     local function isBestBrainrot(item)
         local name = item.Name:lower()
         if name:find("legendary") or name:find("mythical") then
             return false
         end
-
-        -- Also check prompt text / children for rarity
         local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
         if prompt and prompt.ObjectText then
             local text = prompt.ObjectText:lower()
@@ -60,7 +58,6 @@ return function(_, api)
                 return false
             end
         end
-
         return true
     end
 
@@ -69,18 +66,29 @@ return function(_, api)
         local spawners = workspace:FindFirstChild("ItemSpawners")
         if not spawners then return items end
 
-        for _, name in ipairs({"Secret", "Celestial"}) do
-            local folder = spawners:FindFirstChild(name)
-            if folder then
-                for _, item in ipairs(folder:GetDescendants()) do
-                    if item:IsA("Model") and item.Name == "SpawnedItem" then
-                        if isBestBrainrot(item) then
-                            table.insert(items, item)
-                        end
+        -- Secret → GetChildren()[6]
+        local secret = spawners:FindFirstChild("Secret")
+        if secret then
+            local target = secret:GetChildren()[6]
+            if target then
+                for _, item in ipairs(target:GetDescendants()) do
+                    if item:IsA("Model") and item.Name == "SpawnedItem" and isBestBrainrot(item) then
+                        table.insert(items, item)
                     end
                 end
             end
         end
+
+        -- Celestial
+        local celestial = spawners:FindFirstChild("Celestial")
+        if celestial then
+            for _, item in ipairs(celestial:GetDescendants()) do
+                if item:IsA("Model") and item.Name == "SpawnedItem" and isBestBrainrot(item) then
+                    table.insert(items, item)
+                end
+            end
+        end
+
         return items
     end
 
@@ -94,7 +102,6 @@ return function(_, api)
         local session = farmSession
 
         task.spawn(function()
-            -- Load area
             teleport(root, LOAD_CFRAME)
             task.wait(1.3)
 
@@ -118,7 +125,6 @@ return function(_, api)
 
                     task.wait(0.2)
 
-                    -- Back to lobby
                     teleport(root, LOBBY_CFRAME)
                     task.wait(0.6)
                 end
@@ -165,10 +171,11 @@ return function(_, api)
         end)
     end)
 
-    -- ================= CREDITS TAB =================
+    -- ================= CREDITS TAB (with version) =================
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
+        tab.Text("Version: 1.3 - Secret & Celestial Fixed")
         tab.Text("Thanks for using the hub!")
     end)
 end
