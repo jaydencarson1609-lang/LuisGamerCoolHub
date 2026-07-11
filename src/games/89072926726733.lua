@@ -45,7 +45,6 @@ return function(_, api)
         pcall(function() prompt.HoldDuration = old end)
     end
 
-    -- Only best brainrots (skip Legendary & Mythical)
     local function isBestBrainrot(item)
         local name = item.Name:lower()
         if name:find("legendary") or name:find("mythical") then
@@ -66,12 +65,11 @@ return function(_, api)
         local spawners = workspace:FindFirstChild("ItemSpawners")
         if not spawners then return items end
 
-        -- Secret → GetChildren()[6]
+        -- Secret (now checks ALL children, not just [6])
         local secret = spawners:FindFirstChild("Secret")
         if secret then
-            local target = secret:GetChildren()[6]
-            if target then
-                for _, item in ipairs(target:GetDescendants()) do
+            for _, child in ipairs(secret:GetChildren()) do
+                for _, item in ipairs(child:GetDescendants()) do
                     if item:IsA("Model") and item.Name == "SpawnedItem" and isBestBrainrot(item) then
                         table.insert(items, item)
                     end
@@ -79,7 +77,7 @@ return function(_, api)
             end
         end
 
-        -- Celestial
+        -- Celestial (already working)
         local celestial = spawners:FindFirstChild("Celestial")
         if celestial then
             for _, item in ipairs(celestial:GetDescendants()) do
@@ -171,11 +169,11 @@ return function(_, api)
         end)
     end)
 
-    -- ================= CREDITS TAB (with version) =================
+    -- ================= CREDITS TAB =================
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.3 - Secret & Celestial Fixed")
+        tab.Text("Version: 1.4 - Secret Fixed")
         tab.Text("Thanks for using the hub!")
     end)
 end
