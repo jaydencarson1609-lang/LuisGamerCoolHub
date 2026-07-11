@@ -1,14 +1,6 @@
 --[[
 src/games/89072926726733.lua — Cross the Road for Brainrot
 LuisGamerCoolHub
-
-Auto Farm behaviour:
-1. Saves the player's position when enabled.
-2. Always teleports to 360, 2, 2076 first so the area loads.
-3. Teleports to each SpawnedItem's ProximityPrompt.
-4. Activates the prompt (fireproximityprompt if available, else InputHold).
-5. Returns to the saved starting position after every pickup.
-6. Returns to the saved position when Auto Farm is disabled.
 ]]
 
 return function(_, api)
@@ -16,140 +8,85 @@ return function(_, api)
     local LocalPlayer = Players.LocalPlayer
 
     local LOAD_CFRAME = CFrame.new(360, 2, 2076)
-    local LOAD_WAIT_TIME = 1.5
+    local LOBBY_CFRAME = CFrame.new(349, 2, -19)
 
     local farming = false
     local farmSession = 0
     local startCFrame = nil
 
     local function getRootPart()
-        local character = LocalPlayer.Character
-        if not character then
-            character = LocalPlayer.CharacterAdded:Wait()
-        end
-        return character:FindFirstChild("HumanoidRootPart")
-            or character:WaitForChild("HumanoidRootPart", 5)
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        return char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 5)
     end
 
-    local function teleportRoot(rootPart, targetCFrame)
-        if not rootPart or not rootPart.Parent or not targetCFrame then
-            return false
+    local function teleport(root, cframe)
+        if root and cframe then
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+            root.CFrame = cframe
         end
-        rootPart.AssemblyLinearVelocity = Vector3.zero
-        rootPart.AssemblyAngularVelocity = Vector3.zero
-        rootPart.CFrame = targetCFrame
-        return true
-    end
-
-    local function getPromptPosition(prompt)
-        if not prompt or not prompt.Parent then return nil end
-        local parent = prompt.Parent
-
-        if parent:IsA("Attachment") then
-            return parent.WorldPosition
-        elseif parent:IsA("BasePart") then
-            return parent.Position
-        end
-
-        local basePart = parent:FindFirstAncestorWhichIsA("BasePart")
-        return basePart and basePart.Position or nil
     end
 
     local function activatePrompt(prompt)
-        if not prompt or not prompt:IsA("ProximityPrompt") then
-            return false
-        end
+        if not prompt or not prompt:IsA("ProximityPrompt") then return end
 
-        -- Best method: fireproximityprompt (many executors have this)
         if typeof(fireproximityprompt) == "function" then
-            local ok = pcall(function() fireproximityprompt(prompt, 0) end)
-            if ok then return true end
-            local ok2 = pcall(function() fireproximityprompt(prompt) end)
-            return ok2
+            pcall(function() fireproximityprompt(prompt, 0) end)
+            return
         end
 
-        -- Fallback
         local old = prompt.HoldDuration
-        local ok = pcall(function()
+        pcall(function()
             prompt.HoldDuration = 0
             prompt:InputHoldBegin()
             task.wait(0.1)
             prompt:InputHoldEnd()
         end)
         pcall(function() prompt.HoldDuration = old end)
-        return ok
     end
 
-    local function getSpawnedItems()
+    -- Only pick best brainrots (skip Legendary & Mythical)
+    local function isBestBrainrot(item)
+        local name = item.Name:lower()
+        if name:find("legendary") or name:find("mythical") then
+            return false
+        end
+
+        -- Also check prompt text / children for rarity
+        local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+        if prompt and prompt.ObjectText then
+            local text = prompt.ObjectText:lower()
+            if text:find("legendary") or text:find("mythical") then
+                return false
+            end
+        end
+
+        return true
+    end
+
+    local function getTargetSpawnedItems()
         local items = {}
         local spawners = workspace:FindFirstChild("ItemSpawners")
         if not spawners then return items end
 
-        for _, obj in ipairs(spawners:GetDescendants()) do
-            if obj:IsA("Model") and obj.Name == "SpawnedItem" then
-                table.insert(items, obj)
+        for _, name in ipairs({"Secret", "Celestial"}) do
+            local folder = spawners:FindFirstChild(name)
+            if folder then
+                for _, item in ipairs(folder:GetDescendants()) do
+                    if item:IsA("Model") and item.Name == "SpawnedItem" then
+                        if isBestBrainrot(item) then
+                            table.insert(items, item)
+                        end
+                    end
+                end
             end
         end
         return items
     end
 
-    local function returnToStart()
-        if not startCFrame then return end
-        local root = getRootPart()
-        if root then teleportRoot(root, startCFrame) end
-    end
-
-    local function loadFarmArea(session)
-        if not farming or farmSession ~= session then return false end
-
-        local root = getRootPart()
-        if not root then return false end
-
-        teleportRoot(root, LOAD_CFRAME)
-        task.wait(LOAD_WAIT_TIME)
-
-        local started = os.clock()
-        while farming and farmSession == session and not workspace:FindFirstChild("ItemSpawners") and os.clock() - started < 5 do
-            task.wait(0.25)
-        end
-        return farming and farmSession == session
-    end
-
-    local function farmItem(item, session)
-        if not farming or farmSession ~= session or not item or not item.Parent then
-            return
-        end
-
-        local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
-        if not prompt then return end
-
-        local root = getRootPart()
-        if not root then return end
-
-        local pos = getPromptPosition(prompt)
-        local target = pos and CFrame.new(pos + Vector3.new(0, 2.5, 0)) or (item:GetPivot() + Vector3.new(0, 3, 0))
-
-        teleportRoot(root, target)
-        task.wait(0.18)
-
-        if not farming or farmSession ~= session then
-            returnToStart()
-            return
-        end
-
-        activatePrompt(prompt)
-        task.wait(0.35)
-        returnToStart()
-        task.wait(0.5)
-    end
-
     local function startFarming()
         local root = getRootPart()
-        if not root then
-            warn("[Auto Farm] HumanoidRootPart not found.")
-            farming = false
-            return
-        end
+        if not root then return end
 
         startCFrame = root.CFrame
         farming = true
@@ -157,30 +94,51 @@ return function(_, api)
         local session = farmSession
 
         task.spawn(function()
-            while farming and farmSession == session do
-                if not loadFarmArea(session) then break end
+            -- Load area
+            teleport(root, LOAD_CFRAME)
+            task.wait(1.3)
 
-                local items = getSpawnedItems()
-                if #items == 0 then
-                    returnToStart()
-                    task.wait(0.7)
-                    continue
-                end
+            while farming and farmSession == session do
+                local items = getTargetSpawnedItems()
 
                 for _, item in ipairs(items) do
                     if not farming or farmSession ~= session then break end
-                    farmItem(item, session)
+
+                    local pos = item.PrimaryPart and item.PrimaryPart.Position or item:GetPivot().Position
+                    teleport(root, CFrame.new(pos + Vector3.new(0, 3, 0)))
+                    task.wait(0.15)
+
+                    local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+                    if prompt then
+                        for i = 1, 5 do
+                            activatePrompt(prompt)
+                            task.wait(0.03)
+                        end
+                    end
+
+                    task.wait(0.2)
+
+                    -- Back to lobby
+                    teleport(root, LOBBY_CFRAME)
+                    task.wait(0.6)
                 end
-                task.wait(0.2)
+
+                task.wait(0.3)
             end
-            returnToStart()
+
+            if startCFrame then
+                teleport(root, startCFrame)
+            end
         end)
     end
 
     local function stopFarming()
         farming = false
         farmSession += 1
-        returnToStart()
+        local root = getRootPart()
+        if root and startCFrame then
+            teleport(root, startCFrame)
+        end
     end
 
     -- ================= MAIN TAB =================
