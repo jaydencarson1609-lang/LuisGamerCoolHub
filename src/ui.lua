@@ -1,5 +1,5 @@
 -- VERIFIED UI.LUA VERSION — SINGLE GUI ONLY
--- Supported game: Settings only in sidebar; game content auto-loads
+-- Supported game: custom api.Tab tabs + Settings; no automatic game-name tab
 -- Unsupported game: Home + Supported Games + Settings
 -- Removes any older LuisGamerCoolHub GUI before loading.
 
@@ -668,16 +668,21 @@ local function Clear()
     end
 end
 
--- Connect elements.lua to this hub's tab system.
--- This allows game scripts to call api.Tab("Name", function(tab) ... end).
-Element.ConfigureTabs({
-    TabScroll = TabScroll,
-    TabTemplate = TabTemplate,
-    ContentFrame = ContentFrame,
-    TitleHolder = TitleHolder,
-    ContentHolder = ContentHolder,
-    Clear = Clear,
-})
+-- elements.lua still creates Text, Button and Switch elements.
+-- Custom tabs are handled directly by ui.lua below, so the hub does not
+-- depend on Element.Tab being present or up to date.
+if typeof(Element.ConfigureTabs) == "function" then
+    pcall(function()
+        Element.ConfigureTabs({
+            TabScroll = TabScroll,
+            TabTemplate = TabTemplate,
+            ContentFrame = ContentFrame,
+            TitleHolder = TitleHolder,
+            ContentHolder = ContentHolder,
+            Clear = Clear,
+        })
+    end)
+end
 
 local function AddTabHover(tab)
     local hoverIn = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -1135,28 +1140,138 @@ local function AddSupportedGamesList()
     end
 end
 
--- Game API
--- Text/Button/Toggle build inside the currently open page.
--- Tab creates a completely new sidebar tab through elements.lua.
-local GameApi = {
+--============================================================
+-- CUSTOM GAME TABS
+-- ui.lua owns these tabs directly. This avoids failures caused by an
+-- outdated/cached Element.Tab implementation in elements.lua.
+--============================================================
+
+local CustomTabsByName = {}
+local CustomTabOpeners = {}
+local FirstCustomTab = nil
+local nextCustomTabOrder = 1
+local GameApi
+
+local function MakeCustomTabApi()
+    local tabApi = {}
+
+    function tabApi.Text(message)
+        return AddText(message)
+    end
+
+    function tabApi.Button(text, callback)
+        return AddButton(text, callback)
+    end
+
+    function tabApi.Switch(name, default, callback)
+        return AddToggle(name, default, callback)
+    end
+
+    function tabApi.Toggle(name, default, callback)
+        return AddToggle(name, default, callback)
+    end
+
+    function tabApi.Tab(name, builder)
+        return GameApi.Tab(name, builder)
+    end
+
+    return tabApi
+end
+
+local function AddGameCustomTab(name, builder)
+    name = tostring(name or "New Tab")
+
+    if typeof(builder) ~= "function" then
+        warn("[LuisGamerCoolHub] api.Tab builder must be a function")
+        return nil
+    end
+
+    if CustomTabsByName[name] then
+        return CustomTabsByName[name]
+    end
+
+    local tabButton = AddTab(name)
+    tabButton.Name = "GameCustomTab_" .. name
+    tabButton.LayoutOrder = nextCustomTabOrder
+    nextCustomTabOrder += 1
+
+    local function openTab()
+        Clear()
+        ContentFrame.Visible = true
+        TitleHolder.Text = name
+
+        local scopedApi = MakeCustomTabApi()
+        local ok, err = pcall(builder, scopedApi)
+
+        if not ok then
+            AddText("⚠️ Error opening tab: " .. name)
+            warn(
+                "[LuisGamerCoolHub] Custom tab '"
+                    .. name
+                    .. "' error: "
+                    .. tostring(err)
+            )
+        end
+    end
+
+    tabButton.MouseButton1Click:Connect(openTab)
+
+    CustomTabsByName[name] = tabButton
+    CustomTabOpeners[tabButton] = openTab
+
+    if not FirstCustomTab then
+        FirstCustomTab = tabButton
+    end
+
+    return tabButton
+end
+
+-- Game API used by src/games/<PlaceId>.lua
+GameApi = {
     Text = AddText,
     Button = AddButton,
     Toggle = AddToggle,
-
-    Tab = function(name, builder)
-        return Element.Tab(name, builder)
-    end,
+    Switch = AddToggle,
+    Tab = AddGameCustomTab,
 }
 
--- Load current game's script
+local function OpenFirstCustomTab()
+    if not FirstCustomTab then
+        return false
+    end
+
+    local opener = CustomTabOpeners[FirstCustomTab]
+
+    if opener then
+        opener()
+        return true
+    end
+
+    return false
+end
+
+-- Load the current game's file only once.
+local gameScriptLoaded = false
+
 local function LoadCurrentGameScript()
+    if gameScriptLoaded then
+        return true
+    end
+
     if not CurrentPlaceId or CurrentPlaceId == "0" then
         AddText("⚠️ Invalid PlaceId")
         return
     end
 
     local fetchOk, moduleFnOrErr = pcall(function()
-        local src = game:HttpGet(REPO_RAW .. "games/" .. CurrentPlaceId .. ".lua")
+        local gameFileUrl =
+            REPO_RAW
+            .. "games/"
+            .. CurrentPlaceId
+            .. ".lua?cache="
+            .. tostring(os.time())
+
+        local src = game:HttpGet(gameFileUrl)
         return loadstring(src)()
     end)
 
@@ -1178,7 +1293,11 @@ local function LoadCurrentGameScript()
     if not runOk then
         AddText("⚠️ Error running this game's script.")
         warn("[LuisGamerCoolHub] Error running game script: " .. tostring(runErr))
+        return false
     end
+
+    gameScriptLoaded = true
+    return true
 end
 
 -- ==================== TABS ====================
@@ -1197,6 +1316,7 @@ if not CurrentGameEntry then
 end
 
 local settingsTab = AddTab("Settings")
+settingsTab.LayoutOrder = 1000
 
 local function ShowHome()
     Clear()
@@ -1224,14 +1344,6 @@ local function ShowSupportedGames()
     AddSupportedGamesList()
 end
 
-local function ShowGame()
-    if not CurrentGameEntry then return end
-    Clear()
-    ContentFrame.Visible = true
-    TitleHolder.Text = CurrentGameEntry.game
-    LoadCurrentGameScript()
-end
-
 local function ShowSettings()
     Clear()
     ContentFrame.Visible = true
@@ -1245,6 +1357,26 @@ local function ShowSettings()
         RunService:Set3dRenderingEnabled(not disabled)
     end)
 end
+
+local function ShowGame()
+    if not CurrentGameEntry then
+        return
+    end
+
+    Clear()
+    ContentFrame.Visible = true
+    TitleHolder.Text = CurrentGameEntry.game
+
+    local loaded = LoadCurrentGameScript()
+
+    if loaded and OpenFirstCustomTab() then
+        return
+    end
+
+    -- If the game file did not create any api.Tab tabs, open Settings.
+    ShowSettings()
+end
+
 
 if homeTab then
     homeTab.MouseButton1Click:Connect(ShowHome)
