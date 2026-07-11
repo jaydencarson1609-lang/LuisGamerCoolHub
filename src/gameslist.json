@@ -1,52 +1,7 @@
 [
   {
-    "game": "Test",
-    "id": "109908567838703",
+    "game": "Cook Burgers",
+    "id": "2971329387",
     "status": "🟢"
-  },
-  {
-    "game": "Grow a Garden 2",
-    "id": "REPLACE_WITH_PLACE_ID",
-    "status": "🟢"
-  },
-  {
-    "game": "Funky Friday",
-    "id": "REPLACE_WITH_PLACE_ID",
-    "status": "🟢"
-  },
-  {
-    "game": "Natural Disaster Survival",
-    "id": "REPLACE_WITH_PLACE_ID",
-    "status": "🟢"
-  },
-  {
-    "game": "Keyboard Escape",
-    "id": "REPLACE_WITH_PLACE_ID",
-    "status": "🟡"
-  },
-  {
-    "game": "Baby Pursuers",
-    "id": "REPLACE_WITH_PLACE_ID",
-    "status": "🟡"
-  },
-  {
-    "game": "Build Anything",
-    "id": "REPLACE_WITH_PLACE_ID",
-    "status": "🟡"
-  },
-  {
-    "game": "Clasher Royale",
-    "id": "REPLACE_WITH_PLACE_ID",
-    "status": "🔴"
-  },
-  {
-    "game": "Sell Lemons",
-    "id": "REPLACE_WITH_PLACE_ID",
-    "status": "🔴"
-  },
-  {
-    "game": "Project Gambling",
-    "id": "REPLACE_WITH_PLACE_ID",
-    "status": "🔴"
   }
 ]
