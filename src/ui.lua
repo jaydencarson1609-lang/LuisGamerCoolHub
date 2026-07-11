@@ -362,16 +362,17 @@ local ButtonTemplate   = G2L["1c"]
 local UserInputService = game:GetService("UserInputService")
 local TweenService     = game:GetService("TweenService")
 local RunService       = game:GetService("RunService")
+local HttpService      = game:GetService("HttpService")
 
 -- Your old templates (SwitchTemplate/TextTemplate/ButtonTemplate) are no
 -- longer used for content — Element.lua builds nicer versions from scratch.
 -- They're kept hidden in the GUI tree above only so your export stays intact.
 
+local REPO_RAW = "https://raw.githubusercontent.com/jaydencarson1609-lang/LuisGamerCoolHub/main/src/"
+
 -- Load the Element module (hub-style loadstring — swap for require() if
 -- you convert this into Studio ModuleScripts instead)
-local Element = loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/jaydencarson1609-lang/LuisGamerCoolHub/main/src/elements.lua"
-))()
+local Element = loadstring(game:HttpGet(REPO_RAW .. "elements.lua"))()
 
 local originalPosition = MainFrame.Position -- captured once, before anything moves it
 local SLIDE_OFFSET = 40 -- px the panel travels while sliding
@@ -512,9 +513,82 @@ local function AddToggle(text, default, callback)
 	return Element.Switch(ContentHolder, text, default, callback)
 end
 
--- Tabs
+-- The "api" handed to every per-game script (src/games/<PlaceId>.lua).
+-- Matches the contract documented in the games/ template file:
+--   api.Text(message) / api.Button(text, callback) / api.Toggle(text, default, callback)
+local GameApi = {
+	Text = AddText,
+	Button = AddButton,
+	Toggle = AddToggle,
+}
+
+-- ==================== GAMES LIST + AUTO DETECTION ====================
+
+local GamesList = {} -- decoded gameslist.json, in original order
+local GameById = {} -- id (string) -> entry, only for real (non-placeholder) ids
+
+do
+	local ok, raw = pcall(function()
+		return game:HttpGet(REPO_RAW .. "gameslist.json")
+	end)
+	if ok then
+		local decodeOk, decoded = pcall(function()
+			return HttpService:JSONDecode(raw)
+		end)
+		if decodeOk and typeof(decoded) == "table" then
+			GamesList = decoded
+			for _, entry in ipairs(GamesList) do
+				if entry.id and entry.id ~= "REPLACE_WITH_PLACE_ID" then
+					GameById[tostring(entry.id)] = entry
+				end
+			end
+		else
+			warn("[LuisGamerCoolHub] Failed to decode gameslist.json")
+		end
+	else
+		warn("[LuisGamerCoolHub] Failed to fetch gameslist.json: " .. tostring(raw))
+	end
+end
+
+local CurrentPlaceId = tostring(game.PlaceId)
+local CurrentGameEntry = GameById[CurrentPlaceId] -- nil if this game isn't supported
+
+-- Fetches + runs src/games/<PlaceId>.lua for the game the player is currently in.
+local function LoadCurrentGameScript()
+	local fetchOk, moduleFnOrErr = pcall(function()
+		return loadstring(game:HttpGet(REPO_RAW .. "games/" .. CurrentPlaceId .. ".lua"))()
+	end)
+
+	if not fetchOk then
+		AddText("⚠️ Failed to load script for this game.")
+		warn("[LuisGamerCoolHub] " .. tostring(moduleFnOrErr))
+		return
+	end
+
+	if typeof(moduleFnOrErr) ~= "function" then
+		AddText("⚠️ games/" .. CurrentPlaceId .. ".lua didn't return a function.")
+		warn("[LuisGamerCoolHub] games/" .. CurrentPlaceId .. ".lua did not return a function")
+		return
+	end
+
+	local runOk, runErr = pcall(moduleFnOrErr, ContentHolder, GameApi)
+	if not runOk then
+		AddText("⚠️ Error running this game's script.")
+		warn("[LuisGamerCoolHub] Error running game script: " .. tostring(runErr))
+	end
+end
+
+-- ==================== TABS ====================
+-- Home + Settings always exist. A game-specific tab only appears when the
+-- player is currently inside a game listed in gameslist.json.
+
 local homeTab = AddTab("Home")
-local gamesTab = AddTab("Games")
+
+local gameTab
+if CurrentGameEntry then
+	gameTab = AddTab(CurrentGameEntry.game)
+end
+
 local settingsTab = AddTab("Settings")
 
 local function ShowHome()
@@ -522,15 +596,24 @@ local function ShowHome()
 	ContentFrame.Visible = true
 	TitleHolder.Text = "Home"
 	AddText("Welcome to LuisGamerCoolHub!")
-	AddButton("Test Button", function() print("Button works!") end)
-	AddToggle("Test Toggle", false, function(s) print("Toggle:", s) end)
+
+	if CurrentGameEntry then
+		AddText("✅ Supported game detected: " .. CurrentGameEntry.game)
+	else
+		AddText("You're not currently in a supported game.")
+		AddText("Supported games:")
+		for _, entry in ipairs(GamesList) do
+			AddText((entry.status or "") .. " " .. entry.game)
+		end
+	end
 end
 
-local function ShowGames()
+local function ShowGame()
+	if not CurrentGameEntry then return end
 	Clear()
 	ContentFrame.Visible = true
-	TitleHolder.Text = "Games"
-	AddText("Games - Coming Soon")
+	TitleHolder.Text = CurrentGameEntry.game
+	LoadCurrentGameScript()
 end
 
 local function ShowSettings()
@@ -543,7 +626,9 @@ local function ShowSettings()
 end
 
 homeTab.MouseButton1Click:Connect(ShowHome)
-gamesTab.MouseButton1Click:Connect(ShowGames)
+if gameTab then
+	gameTab.MouseButton1Click:Connect(ShowGame)
+end
 settingsTab.MouseButton1Click:Connect(ShowSettings)
 
 --============================================================
@@ -560,7 +645,12 @@ local function OpenGui()
 	MainFrame.Position = originalPosition + UDim2.new(0, 0, 0, SLIDE_OFFSET)
 	MainFrame.Visible = true
 	Fade(1, 0) -- snap fully transparent first (no flash of opaque frame)
-	ShowHome()
+
+	if CurrentGameEntry then
+		ShowGame() -- auto-load this game's tab if it's supported
+	else
+		ShowHome()
+	end
 
 	SlideFade(true, 0.35) -- slides up into place while fading in
 
