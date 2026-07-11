@@ -1,3 +1,4 @@
+-- CUSTOM TAB TEXT VISIBILITY FIX
 -- VERIFIED UI.LUA VERSION — SINGLE GUI ONLY
 -- Supported game: custom api.Tab tabs + Settings; no automatic game-name tab
 -- Unsupported game: Home + Supported Games + Settings
@@ -699,10 +700,32 @@ end
 
 local function AddTab(name)
     local tab = TabTemplate:Clone()
-    tab.Text = name
+
+    tab.Text = tostring(name or "Tab")
     tab.Visible = true
+
+    -- IMPORTANT:
+    -- OpenGui fades the hidden TabTemplate before supported-game scripts
+    -- register their api.Tab(...) tabs. A clone would therefore inherit
+    -- TextTransparency = 1 and its name would appear blank.
+    -- Restore the intended tab appearance every time a tab is created.
+    tab.TextTransparency = 0
+    tab.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tab.BackgroundTransparency = 1
+
+    local tabShadow = tab:FindFirstChildOfClass("UIShadow")
+    if tabShadow then
+        tabShadow.Transparency = 0.75
+    end
+
+    local tabStroke = tab:FindFirstChildOfClass("UIStroke")
+    if tabStroke then
+        tabStroke.Transparency = 0
+    end
+
     tab.Parent = TabScroll
     AddTabHover(tab)
+
     return tab
 end
 
@@ -1193,6 +1216,9 @@ local function AddGameCustomTab(name, builder)
     local tabButton = AddTab(name)
     tabButton.Name = "GameCustomTab_" .. name
     tabButton.LayoutOrder = nextCustomTabOrder
+    tabButton.Text = name
+    tabButton.TextTransparency = 0
+    tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     nextCustomTabOrder += 1
 
     local function openTab()
