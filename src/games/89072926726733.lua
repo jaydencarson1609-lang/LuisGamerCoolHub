@@ -18,35 +18,35 @@ return function(_, api)
                         if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
                             local hrp = plr.Character.HumanoidRootPart
 
-                            -- Loop through all SpawnedItem models in ItemSpawners
+                            -- Go to every SpawnedItem and pick it up
                             for _, folder in pairs(workspace.ItemSpawners:GetChildren()) do
                                 for _, item in pairs(folder:GetDescendants()) do
                                     if item.Name == "SpawnedItem" and item:IsA("Model") then
-                                        -- Teleport to the SpawnedItem
+                                        -- Teleport to the item
                                         if item.PrimaryPart then
                                             hrp.CFrame = item.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
                                         else
                                             hrp.CFrame = item:GetPivot() + Vector3.new(0, 3, 0)
                                         end
 
-                                        task.wait(0.2)
+                                        task.wait(0.15)
 
-                                        -- Fire the ProximityPrompt
+                                        -- Fire ProximityPrompt (spam E)
                                         local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
                                         if prompt then
                                             prompt:Fire()
                                         end
 
-                                        task.wait(0.3)
+                                        task.wait(0.25)
 
-                                        -- Teleport back to lobby
+                                        -- Quick teleport back to lobby
                                         hrp.CFrame = CFrame.new(349, 2, -19)
-                                        task.wait(0.9)
+                                        task.wait(0.85)
                                     end
                                 end
                             end
                         end
-                        task.wait(0.4)
+                        task.wait(0.3)
                     end
                 end)
             end
