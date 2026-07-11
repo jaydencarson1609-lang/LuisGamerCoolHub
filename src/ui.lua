@@ -356,19 +356,19 @@ local TextTemplate    = G2L["19"]
 local ButtonTemplate  = G2L["1c"]
 local UserInputService = game:GetService("UserInputService")
 
-local rowTemplates = { SwitchTemplate, TextTemplate, ButtonTemplate }
+-- Your old templates (SwitchTemplate/TextTemplate/ButtonTemplate) are no
+-- longer used for content — Element.lua builds nicer versions from scratch.
+-- They're kept hidden in the GUI tree above only so your export stays intact.
 
-local function isTemplate(inst)
-	for _, t in ipairs(rowTemplates) do
-		if inst == t then return true end
-	end
-	return false
-end
+-- Load the Element module (hub-style loadstring — swap for require() if
+-- you convert this into Studio ModuleScripts instead)
+local Element = loadstring(game:HttpGet(
+	"https://raw.githubusercontent.com/jaydencarson1609-lang/LuisGamerCoolHub/main/src/element.lua"
+))()
 
--- Clears everything in ContentHolder except the layout and the 3 hidden templates
 local function Clear()
 	for _, v in ipairs(ContentHolder:GetChildren()) do
-		if v:IsA("Frame") and not isTemplate(v) then
+		if not v:IsA("UIListLayout") then
 			v:Destroy()
 		end
 	end
@@ -382,47 +382,16 @@ local function AddTab(name)
 	return tab
 end
 
--- Clones your real TextPlaceHolder template
 local function AddText(text)
-	local row = TextTemplate:Clone()
-	row.Text.Text = text
-	row.Visible = true
-	row.Parent = ContentHolder
-	return row
+	return Element.Text(ContentHolder, text)
 end
 
--- Clones your real ButtonPlaceHolder template
 local function AddButton(text, callback)
-	local row = ButtonTemplate:Clone()
-	row.TextButton.Text = text
-	row.Visible = true
-	row.Parent = ContentHolder
-	row.TextButton.MouseButton1Click:Connect(callback)
-	return row
+	return Element.Button(ContentHolder, text, callback)
 end
 
--- Clones your real SwitchButtonPlaceHolder template
 local function AddToggle(text, default, callback)
-	local row = SwitchTemplate:Clone()
-	row.Name.Text = text
-	row.Visible = true
-	row.Parent = ContentHolder
-
-	local btn = row["On/OffButton"]
-	local state = default or false
-
-	local function update()
-		btn.Text = state and "ON" or "OFF"
-	end
-	update()
-
-	btn.MouseButton1Click:Connect(function()
-		state = not state
-		update()
-		if callback then callback(state) end
-	end)
-
-	return row
+	return Element.Switch(ContentHolder, text, default, callback)
 end
 
 -- Tabs
