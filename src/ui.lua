@@ -1,5 +1,5 @@
 -- VERIFIED UI.LUA VERSION — SINGLE GUI ONLY
--- Supported game: current game tab + Settings
+-- Supported game: Settings only in sidebar; game content auto-loads
 -- Unsupported game: Home + Supported Games + Settings
 -- Removes any older LuisGamerCoolHub GUI before loading.
 
@@ -1183,17 +1183,15 @@ end
 
 -- ==================== TABS ====================
 -- Supported game:
---     Current game tab + Settings
+--     Settings only in the sidebar.
+--     The supported game's content still loads automatically.
 --
 -- Unsupported game:
---     Home + Supported Games + Settings
+--     Home + Supported Games + Settings.
 local homeTab
 local supportedGamesTab
-local gameTab
 
-if CurrentGameEntry then
-    gameTab = AddTab(CurrentGameEntry.game)
-else
+if not CurrentGameEntry then
     homeTab = AddTab("Home")
     supportedGamesTab = AddTab("Supported Games")
 end
@@ -1256,10 +1254,6 @@ if supportedGamesTab then
     supportedGamesTab.MouseButton1Click:Connect(ShowSupportedGames)
 end
 
-if gameTab then
-    gameTab.MouseButton1Click:Connect(ShowGame)
-end
-
 settingsTab.MouseButton1Click:Connect(ShowSettings)
 
 -- OPEN / CLOSE
@@ -1276,7 +1270,7 @@ local function OpenGui()
     Fade(1, 0)
 
     if CurrentGameEntry then
-        -- Open the supported game's features automatically.
+        -- Load the supported game's content without creating a game-name tab.
         ShowGame()
     else
         ShowHome()
