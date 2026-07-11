@@ -60,6 +60,7 @@ G2L["5"]["BorderColor3"] = Color3.fromRGB(0, 0, 0);
 G2L["5"]["Text"] = [[X]];
 G2L["5"]["Name"] = [[CloseButton]];
 G2L["5"]["Position"] = UDim2.new(0.89217, 0, -0.14286, 0);
+G2L["5"]["ClipsDescendants"] = true; -- keeps the hold-fill bar inside the button's shape
 
 
 -- StarterGui.LuisGamerCoolHub.MainFrame.CloseButton.UIShadow
@@ -337,24 +338,30 @@ G2L["20"]["AspectRatio"] = 1.66749;
 
 
 -- StarterGui.LuisGamerCoolHub.MainFrame.UIDragDetector (makes the whole panel draggable, no scripting required)
-G2L["21"] = Instance.new("UIDragDetector", G2L["2"]);
-G2L["21"]["Name"] = [[Drag]];
-G2L["21"]["DragStyle"] = Enum.UIDragDetectorDragStyle.TranslatePlane;
+-- wrapped in pcall: older executors / clients that predate UIDragDetector
+-- would otherwise throw here and kill the whole script before it finishes loading
+pcall(function()
+	G2L["21"] = Instance.new("UIDragDetector", G2L["2"]);
+	G2L["21"]["Name"] = [[Drag]];
+	G2L["21"]["DragStyle"] = Enum.UIDragDetectorDragStyle.TranslatePlane;
+end)
 
 
 -- ==================== WORKING LOGIC (no visual properties changed above) ====================
 
-local MainFrame       = G2L["2"]
-local CloseButton     = G2L["5"]
-local TabScroll        = G2L["9"]
-local TabTemplate     = G2L["b"]
-local ContentFrame    = G2L["e"]
-local TitleHolder     = G2L["10"]
-local ContentHolder   = G2L["12"]
-local SwitchTemplate  = G2L["14"]
-local TextTemplate    = G2L["19"]
-local ButtonTemplate  = G2L["1c"]
+local MainFrame        = G2L["2"]
+local CloseButton      = G2L["5"]
+local TabScroll         = G2L["9"]
+local TabTemplate      = G2L["b"]
+local ContentFrame     = G2L["e"]
+local TitleHolder      = G2L["10"]
+local ContentHolder    = G2L["12"]
+local SwitchTemplate   = G2L["14"]
+local TextTemplate     = G2L["19"]
+local ButtonTemplate   = G2L["1c"]
 local UserInputService = game:GetService("UserInputService")
+local TweenService     = game:GetService("TweenService")
+local RunService       = game:GetService("RunService")
 
 -- Your old templates (SwitchTemplate/TextTemplate/ButtonTemplate) are no
 -- longer used for content — Element.lua builds nicer versions from scratch.
@@ -363,8 +370,107 @@ local UserInputService = game:GetService("UserInputService")
 -- Load the Element module (hub-style loadstring — swap for require() if
 -- you convert this into Studio ModuleScripts instead)
 local Element = loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/jaydencarson1609-lang/LuisGamerCoolHub/main/src/element.lua"
+	"https://raw.githubusercontent.com/jaydencarson1609-lang/LuisGamerCoolHub/main/src/elements.lua"
 ))()
+
+local originalPosition = MainFrame.Position -- captured once, before anything moves it
+local SLIDE_OFFSET = 40 -- px the panel travels while sliding
+
+--============================================================
+-- HOLD-TO-CLOSE BAR
+-- A black frame parented to CloseButton that fills bottom -> up
+-- while the button is held down, like a charging meter.
+-- Completing the hold triggers the full-GUI close animation + destroy.
+--============================================================
+local HoldFill = Instance.new("Frame")
+HoldFill.Name = "HoldFill"
+HoldFill.BackgroundColor3 = Color3.new(0, 0, 0)
+HoldFill.BackgroundTransparency = 0.1
+HoldFill.BorderSizePixel = 0
+HoldFill.AnchorPoint = Vector2.new(0, 1)
+HoldFill.Position = UDim2.new(0, 0, 1, 0)
+HoldFill.Size = UDim2.new(1, 0, 0, 0) -- starts empty, grows upward
+HoldFill.ZIndex = CloseButton.ZIndex + 1
+HoldFill.Parent = CloseButton
+
+local HOLD_DURATION = 0.9 -- seconds to hold before it closes
+
+-- Press-feedback scale for the close button (hover + press states)
+local CloseScale = Instance.new("UIScale")
+CloseScale.Scale = 1
+CloseScale.Parent = CloseButton
+
+local closeOriginalColor = CloseButton.BackgroundColor3
+local closeHoverColor = Color3.fromRGB(255, 72, 62)
+
+--============================================================
+-- FADE SYSTEM
+-- Caches every descendant's original transparency once, then can
+-- smoothly tween the whole tree between "fully shown" (alpha 0)
+-- and "fully hidden" (alpha 1).
+--============================================================
+local fadeTargets = {}
+
+local function RegisterFadeTargets(root)
+	local function addTarget(inst, prop)
+		local ok, orig = pcall(function() return inst[prop] end)
+		if ok then
+			table.insert(fadeTargets, { inst, prop, orig })
+		end
+	end
+
+	addTarget(root, "BackgroundTransparency")
+
+	for _, obj in ipairs(root:GetDescendants()) do
+		if obj:IsA("GuiObject") then
+			addTarget(obj, "BackgroundTransparency")
+			if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+				addTarget(obj, "TextTransparency")
+			end
+			if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+				addTarget(obj, "ImageTransparency")
+			end
+			if obj:IsA("ScrollingFrame") then
+				addTarget(obj, "ScrollBarImageTransparency")
+			end
+		elseif obj:IsA("UIStroke") then
+			addTarget(obj, "Transparency")
+		elseif obj.ClassName == "UIShadow" then
+			addTarget(obj, "Transparency")
+		end
+	end
+end
+
+RegisterFadeTargets(MainFrame)
+
+-- alpha: 0 = fully visible (original transparency), 1 = fully invisible
+-- runs async (no wait) so it can be layered with a Position tween
+local function Fade(alpha, duration)
+	duration = duration or 0.25
+	local info = TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	for _, data in ipairs(fadeTargets) do
+		local inst, prop, orig = data[1], data[2], data[3]
+		local target = orig + (1 - orig) * alpha
+		TweenService:Create(inst, info, { [prop] = target }):Play()
+	end
+end
+
+-- Slides MainFrame up/down while fading it, and waits for it to finish.
+-- showing = true  -> slides up into place + fades in
+-- showing = false -> slides further up + fades out
+local function SlideFade(showing, duration)
+	duration = duration or 0.32
+	local style = Enum.EasingStyle.Quart
+	local direction = showing and Enum.EasingDirection.Out or Enum.EasingDirection.In
+	local targetPos = showing and originalPosition
+		or (originalPosition - UDim2.new(0, 0, 0, SLIDE_OFFSET))
+
+	TweenService:Create(MainFrame, TweenInfo.new(duration, style, direction), {
+		Position = targetPos
+	}):Play()
+	Fade(showing and 0 or 1, duration)
+	task.wait(duration)
+end
 
 local function Clear()
 	for _, v in ipairs(ContentHolder:GetChildren()) do
@@ -374,11 +480,23 @@ local function Clear()
 	end
 end
 
+local function AddTabHover(tab)
+	local hoverIn = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local hoverOut = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	tab.MouseEnter:Connect(function()
+		TweenService:Create(tab, hoverIn, { BackgroundTransparency = 0.85 }):Play()
+	end)
+	tab.MouseLeave:Connect(function()
+		TweenService:Create(tab, hoverOut, { BackgroundTransparency = 1 }):Play()
+	end)
+end
+
 local function AddTab(name)
 	local tab = TabTemplate:Clone()
 	tab.Text = name
 	tab.Visible = true
 	tab.Parent = TabScroll
+	AddTabHover(tab)
 	return tab
 end
 
@@ -428,23 +546,140 @@ homeTab.MouseButton1Click:Connect(ShowHome)
 gamesTab.MouseButton1Click:Connect(ShowGames)
 settingsTab.MouseButton1Click:Connect(ShowSettings)
 
-CloseButton.MouseButton1Click:Connect(function()
-	G2L["1"]:Destroy()
-end)
+--============================================================
+-- OPEN / CLOSE (slide up + fade, driven by K)
+--============================================================
+local guiVisible = false
+local animating = false
 
--- K keybind toggles the whole menu
-local visible = false
+local function OpenGui()
+	if animating or guiVisible then return end
+	animating = true
+	guiVisible = true
+
+	MainFrame.Position = originalPosition + UDim2.new(0, 0, 0, SLIDE_OFFSET)
+	MainFrame.Visible = true
+	Fade(1, 0) -- snap fully transparent first (no flash of opaque frame)
+	ShowHome()
+
+	SlideFade(true, 0.35) -- slides up into place while fading in
+
+	animating = false
+end
+
+local function CloseGui()
+	if animating or not guiVisible then return end
+	animating = true
+
+	SlideFade(false, 0.3) -- slides further up while fading out
+
+	MainFrame.Visible = false
+	MainFrame.Position = originalPosition -- reset so next open starts clean
+	guiVisible = false
+
+	animating = false
+end
+
+-- K keybind toggles the whole menu, smoothly
 UserInputService.InputBegan:Connect(function(input, gp)
 	if gp then return end
 	if input.KeyCode == Enum.KeyCode.K then
-		visible = not visible
-		MainFrame.Visible = visible
-		if visible then
-			ShowHome()
+		if guiVisible then
+			CloseGui()
+		else
+			OpenGui()
 		end
 	end
 end)
 
-print("✅ LuisGamerCoolHub loaded! Press K")
+--============================================================
+-- CLOSE BUTTON: hover + hold-to-close
+--============================================================
+local holding = false
+local holdConn
+
+CloseButton.MouseEnter:Connect(function()
+	if holding then return end
+	TweenService:Create(CloseButton, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		BackgroundColor3 = closeHoverColor
+	}):Play()
+	TweenService:Create(CloseScale, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Scale = 1.06
+	}):Play()
+end)
+
+local function ResetCloseVisual()
+	TweenService:Create(CloseButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		BackgroundColor3 = closeOriginalColor
+	}):Play()
+	TweenService:Create(CloseScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Scale = 1
+	}):Play()
+end
+
+local function CancelHold()
+	if not holding then return end
+	holding = false
+	if holdConn then
+		holdConn:Disconnect()
+		holdConn = nil
+	end
+	TweenService:Create(HoldFill, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = UDim2.new(1, 0, 0, 0)
+	}):Play()
+	ResetCloseVisual()
+end
+
+local function FinishHold()
+	holding = false
+	if holdConn then
+		holdConn:Disconnect()
+		holdConn = nil
+	end
+
+	-- brief solid black flash on the button, then close the whole GUI
+	TweenService:Create(HoldFill, TweenInfo.new(0.1), { BackgroundTransparency = 0 }):Play()
+	task.wait(0.1)
+
+	SlideFade(false, 0.35)
+	MainFrame.Visible = false
+	guiVisible = false
+
+	task.wait(0.05)
+	G2L["1"]:Destroy()
+end
+
+local function StartHold()
+	if holding or animating then return end
+	holding = true
+	local startTime = os.clock()
+
+	-- quick press-in feedback
+	TweenService:Create(CloseScale, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Scale = 0.94
+	}):Play()
+
+	holdConn = RunService.Heartbeat:Connect(function()
+		if not holding then return end
+		local elapsed = os.clock() - startTime
+		-- eased fill: quick start, gentle settle near completion — reads as more deliberate than a linear bar
+		local t = math.clamp(elapsed / HOLD_DURATION, 0, 1)
+		local eased = TweenService:GetValue(t, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+		HoldFill.Size = UDim2.new(1, 0, eased, 0)
+
+		if t >= 1 then
+			FinishHold()
+		end
+	end)
+end
+
+CloseButton.MouseButton1Down:Connect(StartHold)
+CloseButton.MouseButton1Up:Connect(CancelHold)
+CloseButton.MouseLeave:Connect(function()
+	CancelHold()
+	ResetCloseVisual()
+end)
+
+print("✅ LuisGamerCoolHub loaded! Hold X to close, press K to toggle")
 
 return G2L["1"];
