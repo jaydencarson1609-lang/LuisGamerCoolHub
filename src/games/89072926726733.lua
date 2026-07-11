@@ -4,7 +4,7 @@ LuisGamerCoolHub
 ]]
 
 return function(_, api)
-    -- ================= MAIN TAB (ONLY THE SWITCH) =================
+    -- ================= MAIN TAB (ONLY THE TOGGLE) =================
     api.Tab("Main", function(tab)
         local farming = false
 
@@ -18,35 +18,39 @@ return function(_, api)
                         if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
                             local hrp = plr.Character.HumanoidRootPart
 
-                            -- Go to every SpawnedItem and pick it up
                             for _, folder in pairs(workspace.ItemSpawners:GetChildren()) do
                                 for _, item in pairs(folder:GetDescendants()) do
                                     if item.Name == "SpawnedItem" and item:IsA("Model") then
-                                        -- Teleport to the item
+                                        -- Teleport to the SpawnedItem
                                         if item.PrimaryPart then
                                             hrp.CFrame = item.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
                                         else
                                             hrp.CFrame = item:GetPivot() + Vector3.new(0, 3, 0)
                                         end
 
-                                        task.wait(0.15)
+                                        task.wait(0.12)
 
-                                        -- Fire ProximityPrompt (spam E)
+                                        -- Find and properly activate the ProximityPrompt (spam E)
                                         local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
                                         if prompt then
-                                            prompt:Fire()
+                                            for i = 1, 6 do
+                                                prompt:InputHoldBegin()
+                                                task.wait(0.04)
+                                                prompt:InputHoldEnd()
+                                                task.wait(0.02)
+                                            end
                                         end
 
-                                        task.wait(0.25)
+                                        task.wait(0.2)
 
-                                        -- Quick teleport back to lobby
+                                        -- Teleport back to lobby
                                         hrp.CFrame = CFrame.new(349, 2, -19)
-                                        task.wait(0.85)
+                                        task.wait(0.7)
                                     end
                                 end
                             end
                         end
-                        task.wait(0.3)
+                        task.wait(0.25)
                     end
                 end)
             end
