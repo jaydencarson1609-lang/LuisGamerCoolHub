@@ -37,46 +37,6 @@ return function(_, api)
         end
     end
 
-    -- Get player's own plot
-    local function getMyPlot()
-        for _, plot in ipairs(workspace:GetChildren()) do
-            if plot.Name:match("^Plot_") then
-                for _, d in ipairs(plot:GetDescendants()) do
-                    if (d:IsA("TextLabel") or d:IsA("BillboardGui")) and d.Text then
-                        if d.Text:lower() == LocalPlayer.Name:lower() then
-                            return plot
-                        end
-                    end
-                end
-            end
-        end
-        return nil
-    end
-
-    -- Better touch function (more reliable in 2026)
-    local function fireTouch(part)
-        local character = LocalPlayer.Character
-        if not character or not part then return end
-
-        -- Method 1: firetouchinterest (best)
-        pcall(function()
-            firetouchinterest(character, part, 0)
-            task.wait(0.05)
-            firetouchinterest(character, part, 1)
-        end)
-
-        -- Method 2: Backup - teleport close + touch
-        pcall(function()
-            local root = character:FindFirstChild("HumanoidRootPart")
-            if root then
-                local oldCFrame = root.CFrame
-                root.CFrame = part.CFrame + Vector3.new(0, 3, 0)
-                task.wait(0.1)
-                root.CFrame = oldCFrame
-            end
-        end)
-    end
-
     local function activatePrompt(prompt)
         if not prompt or not prompt:IsA("ProximityPrompt") then return end
 
@@ -210,24 +170,30 @@ return function(_, api)
             end
         end)
 
-        -- Auto Collect Money (fixed)
+        -- Auto Collect Money (firetouchinterest)
         tab.Toggle("Auto Collect Money", false, function(state)
             collectingMoney = state
 
             if state then
                 task.spawn(function()
                     while collectingMoney do
-                        local myPlot = getMyPlot()
-                        if myPlot then
-                            for _, floor in ipairs(myPlot:GetChildren()) do
-                                if floor.Name:match("^Floor") then
-                                    local slots = floor:FindFirstChild("Slots")
-                                    if slots then
-                                        for _, slot in ipairs(slots:GetChildren()) do
-                                            if slot.Name:match("^Slot") then
-                                                local collectTouch = slot:FindFirstChild("CollectTouch")
-                                                if collectTouch and collectTouch:IsA("BasePart") then
-                                                    fireTouch(collectTouch)
+                        for _, plot in ipairs(workspace:GetChildren()) do
+                            if plot.Name:match("^Plot_") then
+                                for _, floor in ipairs(plot:GetChildren()) do
+                                    if floor.Name:match("^Floor") then
+                                        local slots = floor:FindFirstChild("Slots")
+                                        if slots then
+                                            for _, slot in ipairs(slots:GetChildren()) do
+                                                if slot.Name:match("^Slot") then
+                                                    local collectTouch = slot:FindFirstChild("CollectTouch")
+                                                    if collectTouch and collectTouch:IsA("BasePart") then
+                                                        local char = LocalPlayer.Character
+                                                        if char then
+                                                            firetouchinterest(char, collectTouch, 0)
+                                                            task.wait(0.08)
+                                                            firetouchinterest(char, collectTouch, 1)
+                                                        end
+                                                    end
                                                 end
                                             end
                                         end
@@ -235,35 +201,36 @@ return function(_, api)
                                 end
                             end
                         end
-                        task.wait(1.0)
+                        task.wait(1.2)
                     end
                 end)
             end
         end)
 
-        -- Auto Upgrade
+        -- Auto Upgrade (firesignal MouseButton1Click)
         tab.Toggle("Auto Upgrade", false, function(state)
             upgrading = state
 
             if state then
                 task.spawn(function()
                     while upgrading do
-                        local myPlot = getMyPlot()
-                        if myPlot then
-                            for _, floor in ipairs(myPlot:GetChildren()) do
-                                if floor.Name:match("^Floor") then
-                                    local slots = floor:FindFirstChild("Slots")
-                                    if slots then
-                                        for _, slot in ipairs(slots:GetChildren()) do
-                                            if slot.Name:match("^Slot") then
-                                                local upgradePart = slot:FindFirstChild("UpgradePart")
-                                                if upgradePart then
-                                                    local gui = upgradePart:FindFirstChild("UpgradeGUI", true)
-                                                    local button = gui and gui:FindFirstChild("UpgradeButton")
-                                                    if button and button:IsA("TextButton") then
-                                                        pcall(function()
-                                                            firesignal(button.MouseButton1Click)
-                                                        end)
+                        for _, plot in ipairs(workspace:GetChildren()) do
+                            if plot.Name:match("^Plot_") then
+                                for _, floor in ipairs(plot:GetChildren()) do
+                                    if floor.Name:match("^Floor") then
+                                        local slots = floor:FindFirstChild("Slots")
+                                        if slots then
+                                            for _, slot in ipairs(slots:GetChildren()) do
+                                                if slot.Name:match("^Slot") then
+                                                    local upgradePart = slot:FindFirstChild("UpgradePart")
+                                                    if upgradePart then
+                                                        local gui = upgradePart:FindFirstChild("UpgradeGUI", true)
+                                                        local button = gui and gui:FindFirstChild("UpgradeButton")
+                                                        if button and button:IsA("TextButton") then
+                                                            pcall(function()
+                                                                firesignal(button.MouseButton1Click)
+                                                            end)
+                                                        end
                                                     end
                                                 end
                                             end
@@ -296,7 +263,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 2.1 - Better Touch + Auto Upgrade")
+        tab.Text("Version: 2.3 - Simple FireTouch + MouseButton1Click")
         tab.Text("Thanks for using the hub!")
     end)
 end
