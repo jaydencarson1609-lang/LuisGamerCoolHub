@@ -37,13 +37,13 @@ return function(_, api)
         end
     end
 
-    -- Find the player's own plot
+    -- Get player's own plot
     local function getMyPlot()
         for _, plot in ipairs(workspace:GetChildren()) do
             if plot.Name:match("^Plot_") then
-                for _, descendant in ipairs(plot:GetDescendants()) do
-                    if (descendant:IsA("TextLabel") or descendant:IsA("BillboardGui")) and descendant.Text then
-                        if descendant.Text:lower() == LocalPlayer.Name:lower() then
+                for _, d in ipairs(plot:GetDescendants()) do
+                    if (d:IsA("TextLabel") or d:IsA("BillboardGui")) and d.Text then
+                        if d.Text:lower() == LocalPlayer.Name:lower() then
                             return plot
                         end
                     end
@@ -51,6 +51,30 @@ return function(_, api)
             end
         end
         return nil
+    end
+
+    -- Better touch function (more reliable in 2026)
+    local function fireTouch(part)
+        local character = LocalPlayer.Character
+        if not character or not part then return end
+
+        -- Method 1: firetouchinterest (best)
+        pcall(function()
+            firetouchinterest(character, part, 0)
+            task.wait(0.05)
+            firetouchinterest(character, part, 1)
+        end)
+
+        -- Method 2: Backup - teleport close + touch
+        pcall(function()
+            local root = character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local oldCFrame = root.CFrame
+                root.CFrame = part.CFrame + Vector3.new(0, 3, 0)
+                task.wait(0.1)
+                root.CFrame = oldCFrame
+            end
+        end)
     end
 
     local function activatePrompt(prompt)
@@ -186,7 +210,7 @@ return function(_, api)
             end
         end)
 
-        -- Auto Collect Money (only your plot)
+        -- Auto Collect Money (fixed)
         tab.Toggle("Auto Collect Money", false, function(state)
             collectingMoney = state
 
@@ -203,12 +227,7 @@ return function(_, api)
                                             if slot.Name:match("^Slot") then
                                                 local collectTouch = slot:FindFirstChild("CollectTouch")
                                                 if collectTouch and collectTouch:IsA("BasePart") then
-                                                    local character = LocalPlayer.Character
-                                                    if character then
-                                                        firetouchinterest(character, collectTouch, 0)
-                                                        task.wait(0.05)
-                                                        firetouchinterest(character, collectTouch, 1)
-                                                    end
+                                                    fireTouch(collectTouch)
                                                 end
                                             end
                                         end
@@ -216,7 +235,7 @@ return function(_, api)
                                 end
                             end
                         end
-                        task.wait(1.2)
+                        task.wait(1.0)
                     end
                 end)
             end
@@ -239,13 +258,11 @@ return function(_, api)
                                             if slot.Name:match("^Slot") then
                                                 local upgradePart = slot:FindFirstChild("UpgradePart")
                                                 if upgradePart then
-                                                    local upgradeButton = upgradePart:FindFirstChild("UpgradeGUI", true)
-                                                    if upgradeButton then
-                                                        upgradeButton = upgradeButton:FindFirstChild("UpgradeButton")
-                                                    end
-                                                    if upgradeButton and upgradeButton:IsA("TextButton") then
+                                                    local gui = upgradePart:FindFirstChild("UpgradeGUI", true)
+                                                    local button = gui and gui:FindFirstChild("UpgradeButton")
+                                                    if button and button:IsA("TextButton") then
                                                         pcall(function()
-                                                            firesignal(upgradeButton.MouseButton1Click)
+                                                            firesignal(button.MouseButton1Click)
                                                         end)
                                                     end
                                                 end
@@ -255,7 +272,7 @@ return function(_, api)
                                 end
                             end
                         end
-                        task.wait(2)
+                        task.wait(1.5)
                     end
                 end)
             end
@@ -279,7 +296,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 2.0 - Auto Collect + Auto Upgrade")
+        tab.Text("Version: 2.1 - Better Touch + Auto Upgrade")
         tab.Text("Thanks for using the hub!")
     end)
 end
