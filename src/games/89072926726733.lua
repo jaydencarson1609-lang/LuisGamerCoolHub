@@ -1,5 +1,5 @@
 --[[
-src/games/89072926726733.lua — Cross the Road for Brainrot
+src/games/89072926726733.lua — Cross the Road for Brainrot, yes sirrrrr
 LuisGamerCoolHub
 ]]
 
