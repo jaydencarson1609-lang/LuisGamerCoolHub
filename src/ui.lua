@@ -480,7 +480,7 @@ local REPO_RAW = "https://raw.githubusercontent.com/jaydencarson1609-lang/LuisGa
 local Element
 do
     local ok, src = pcall(function()
-        return game:HttpGet(REPO_RAW .. "elements.lua")
+        return game:HttpGet(REPO_RAW .. "elements.lua?cache=" .. tostring(os.time()))
     end)
     if ok and src then
         local fn = loadstring(src)
@@ -702,16 +702,74 @@ if typeof(Element.ConfigureTabs) == "function" then
     end)
 end
 
+local ActiveSidebarTab = nil
+
+local function setTabSelected(selectedTab, instant)
+    ActiveSidebarTab = selectedTab
+
+    local duration = instant and 0 or 0.18
+    local info = TweenInfo.new(duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+
+    for _, tab in ipairs(TabScroll:GetChildren()) do
+        if tab:IsA("TextButton") and tab.Visible then
+            local isSelected = tab == selectedTab
+            local goals = {
+                BackgroundTransparency = isSelected and 0.82 or 1,
+                TextColor3 = isSelected
+                    and Color3.fromRGB(0, 0, 0)
+                    or Color3.fromRGB(255, 255, 255),
+            }
+
+            if instant then
+                tab.BackgroundTransparency = goals.BackgroundTransparency
+                tab.TextColor3 = goals.TextColor3
+            else
+                TweenService:Create(tab, info, goals):Play()
+            end
+
+            local shadow = tab:FindFirstChildOfClass("UIShadow")
+            if shadow then
+                local shadowGoal = isSelected and 0.55 or 0.75
+                if instant then
+                    shadow.Transparency = shadowGoal
+                else
+                    TweenService:Create(shadow, info, {
+                        Transparency = shadowGoal,
+                    }):Play()
+                end
+            end
+        end
+    end
+end
+
 local function AddTabHover(tab)
     local hoverIn = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local hoverOut = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    
+    local hoverOut = TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
     tab.MouseEnter:Connect(function()
-        TweenService:Create(tab, hoverIn, { BackgroundTransparency = 0.85 }):Play()
+        if ActiveSidebarTab == tab then
+            return
+        end
+
+        TweenService:Create(tab, hoverIn, {
+            BackgroundTransparency = 0.87,
+            TextColor3 = Color3.fromRGB(245, 255, 245),
+        }):Play()
     end)
-    
+
     tab.MouseLeave:Connect(function()
-        TweenService:Create(tab, hoverOut, { BackgroundTransparency = 1 }):Play()
+        if ActiveSidebarTab == tab then
+            TweenService:Create(tab, hoverOut, {
+                BackgroundTransparency = 0.82,
+                TextColor3 = Color3.fromRGB(0, 0, 0),
+            }):Play()
+            return
+        end
+
+        TweenService:Create(tab, hoverOut, {
+            BackgroundTransparency = 1,
+            TextColor3 = Color3.fromRGB(255, 255, 255),
+        }):Play()
     end)
 end
 
@@ -720,12 +778,6 @@ local function AddTab(name)
 
     tab.Text = tostring(name or "Tab")
     tab.Visible = true
-
-    -- IMPORTANT:
-    -- OpenGui fades the hidden TabTemplate before supported-game scripts
-    -- register their api.Tab(...) tabs. A clone would therefore inherit
-    -- TextTransparency = 1 and its name would appear blank.
-    -- Restore the intended tab appearance every time a tab is created.
     tab.TextTransparency = 0
     tab.TextColor3 = Color3.fromRGB(255, 255, 255)
     tab.BackgroundTransparency = 1
@@ -742,6 +794,10 @@ local function AddTab(name)
 
     tab.Parent = TabScroll
     AddTabHover(tab)
+
+    tab.MouseButton1Click:Connect(function()
+        setTabSelected(tab)
+    end)
 
     return tab
 end
@@ -1139,6 +1195,75 @@ end
 local function AddToggle(text, default, callback)
     local switchResult = Element.Switch(ContentHolder, text, default, callback)
     return StyleSwitchElement(switchResult)
+end
+
+local function callElementFunction(functionName, ...)
+    local elementFunction = Element[functionName]
+
+    if typeof(elementFunction) ~= "function" then
+        error(
+            "[LuisGamerCoolHub] Element."
+                .. tostring(functionName)
+                .. " is missing. Replace src/elements.lua with the expanded elements file.",
+            2
+        )
+    end
+
+    return elementFunction(ContentHolder, ...)
+end
+
+local function AddParagraph(title, message)
+    return callElementFunction("Paragraph", title, message)
+end
+
+local function AddSection(title)
+    return callElementFunction("Section", title)
+end
+
+local function AddDivider()
+    return callElementFunction("Divider")
+end
+
+local function AddSpacer(height)
+    return callElementFunction("Spacer", height)
+end
+
+local function AddSelect(name, options, default, callback)
+    return callElementFunction("Select", name, options, default, callback)
+end
+
+local function AddMultiSelect(name, options, defaults, callback)
+    return callElementFunction("MultiSelect", name, options, defaults, callback)
+end
+
+local function AddSlider(name, minimum, maximum, default, step, callback)
+    return callElementFunction(
+        "Slider",
+        name,
+        minimum,
+        maximum,
+        default,
+        step,
+        callback
+    )
+end
+
+local function AddInput(name, placeholder, default, callback)
+    return callElementFunction("Input", name, placeholder, default, callback)
+end
+
+local function AddKeybind(name, defaultKey, onPressed, onChanged)
+    return callElementFunction(
+        "Keybind",
+        name,
+        defaultKey,
+        onPressed,
+        onChanged
+    )
+end
+
+local function AddStatus(name, defaultText, defaultColor)
+    return callElementFunction("Status", name, defaultText, defaultColor)
 end
 
 -- Supported Games is a static, vertically scrolling information list.
@@ -2012,6 +2137,22 @@ local function MakeCustomTabApi()
         return AddText(message)
     end
 
+    function tabApi.Paragraph(title, message)
+        return AddParagraph(title, message)
+    end
+
+    function tabApi.Section(title)
+        return AddSection(title)
+    end
+
+    function tabApi.Divider()
+        return AddDivider()
+    end
+
+    function tabApi.Spacer(height)
+        return AddSpacer(height)
+    end
+
     function tabApi.Button(text, callback)
         return AddButton(text, callback)
     end
@@ -2022,6 +2163,37 @@ local function MakeCustomTabApi()
 
     function tabApi.Toggle(name, default, callback)
         return AddToggle(name, default, callback)
+    end
+
+    function tabApi.Select(name, options, default, callback)
+        return AddSelect(name, options, default, callback)
+    end
+
+    tabApi.Dropdown = tabApi.Select
+
+    function tabApi.MultiSelect(name, options, defaults, callback)
+        return AddMultiSelect(name, options, defaults, callback)
+    end
+
+    tabApi.MultiChoice = tabApi.MultiSelect
+    tabApi.MultiDropdown = tabApi.MultiSelect
+
+    function tabApi.Slider(name, minimum, maximum, default, step, callback)
+        return AddSlider(name, minimum, maximum, default, step, callback)
+    end
+
+    function tabApi.Input(name, placeholder, default, callback)
+        return AddInput(name, placeholder, default, callback)
+    end
+
+    tabApi.Textbox = tabApi.Input
+
+    function tabApi.Keybind(name, defaultKey, onPressed, onChanged)
+        return AddKeybind(name, defaultKey, onPressed, onChanged)
+    end
+
+    function tabApi.Status(name, defaultText, defaultColor)
+        return AddStatus(name, defaultText, defaultColor)
     end
 
     function tabApi.Tab(name, builder)
@@ -2052,6 +2224,7 @@ local function AddGameCustomTab(name, builder)
     nextCustomTabOrder += 1
 
     local function openTab()
+        setTabSelected(tabButton)
         Clear()
         ContentFrame.Visible = true
         TitleHolder.Text = name
@@ -2085,9 +2258,23 @@ end
 -- Game API used by src/games/<PlaceId>.lua
 GameApi = {
     Text = AddText,
+    Paragraph = AddParagraph,
+    Section = AddSection,
+    Divider = AddDivider,
+    Spacer = AddSpacer,
     Button = AddButton,
     Toggle = AddToggle,
     Switch = AddToggle,
+    Select = AddSelect,
+    Dropdown = AddSelect,
+    MultiSelect = AddMultiSelect,
+    MultiChoice = AddMultiSelect,
+    MultiDropdown = AddMultiSelect,
+    Slider = AddSlider,
+    Input = AddInput,
+    Textbox = AddInput,
+    Keybind = AddKeybind,
+    Status = AddStatus,
     Tab = AddGameCustomTab,
 }
 
@@ -2175,6 +2362,9 @@ local settingsTab = AddTab("Settings")
 settingsTab.LayoutOrder = 1000
 
 local function ShowHome()
+    if homeTab then
+        setTabSelected(homeTab)
+    end
     Clear()
     ContentFrame.Visible = true
     TitleHolder.Text = "Home"
@@ -2190,6 +2380,9 @@ local function ShowHome()
 end
 
 local function ShowSupportedGames()
+    if supportedGamesTab then
+        setTabSelected(supportedGamesTab)
+    end
     Clear()
     ContentFrame.Visible = true
 
@@ -3184,6 +3377,7 @@ local function restoreDefaultSettings()
 end
 
 local function ShowSettings()
+    setTabSelected(settingsTab)
     Clear()
     ContentFrame.Visible = true
     TitleHolder.Text = "Settings"
