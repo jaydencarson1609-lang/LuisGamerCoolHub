@@ -11,6 +11,7 @@ return function(_, api)
     local FARM_CFRAME = CFrame.new(78, 7, 4397)
     local farming = false
     local farmSession = 0
+    local collectingMoney = false
 
     local function getRootPart()
         local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -50,12 +51,8 @@ return function(_, api)
         task.spawn(function()
             while farming and farmSession == session do
                 local root = getRootPart()
-                if not root then
-                    task.wait(0.5)
-                    continue
-                end
+                if not root then task.wait(0.5) continue end
 
-                -- Teleport to farm area
                 teleport(root, FARM_CFRAME)
                 task.wait(0.5)
 
@@ -67,7 +64,6 @@ return function(_, api)
                 if platform9 then
                     for _, brainrot in ipairs(platform9:GetChildren()) do
                         if not farming or farmSession ~= session then break end
-
                         if isValidBrainrot(brainrot) then
                             local pos = brainrot:GetPivot().Position
                             teleport(root, CFrame.new(pos + Vector3.new(0, 3, 0)))
@@ -87,7 +83,6 @@ return function(_, api)
                         end
                     end
                 end
-
                 task.wait(0.25)
             end
         end)
@@ -98,7 +93,46 @@ return function(_, api)
         farmSession += 1
     end
 
-    -- Auto resume after death
+    -- Auto Collect Money
+    local function startCollectingMoney()
+        collectingMoney = true
+        task.spawn(function()
+            while collectingMoney do
+                pcall(function()
+                    -- Try to find player's plot (adjust if needed)
+                    for _, plot in ipairs(workspace:GetChildren()) do
+                        if plot.Name:match("Plot") or plot.Name:match("plot") then
+                            for _, floor in ipairs(plot:GetChildren()) do
+                                if floor.Name:match("Floor") or floor.Name:match("floor") then
+                                    local slots = floor:FindFirstChild("Slots") or floor:FindFirstChild("slots")
+                                    if slots then
+                                        for _, slot in ipairs(slots:GetChildren()) do
+                                            local collectTouch = slot:FindFirstChild("CollectTouch")
+                                                or slot:FindFirstChild("Button")
+                                                or slot:FindFirstChildWhichIsA("TouchTransmitter", true)
+
+                                            if collectTouch then
+                                                firetouchinterest(LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head"), collectTouch, true)
+                                                task.wait()
+                                                firetouchinterest(LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head"), collectTouch, false)
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end)
+                task.wait(0.2)
+            end
+        end)
+    end
+
+    local function stopCollectingMoney()
+        collectingMoney = false
+    end
+
+    -- Resume farming after death
     LocalPlayer.CharacterAdded:Connect(function()
         if farming then
             task.wait(1.5)
@@ -113,6 +147,14 @@ return function(_, api)
                 startFarming()
             else
                 stopFarming()
+            end
+        end)
+
+        tab.Toggle("Auto Collect Money", false, function(state)
+            if state then
+                startCollectingMoney()
+            else
+                stopCollectingMoney()
             end
         end)
     end)
@@ -134,7 +176,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.1 - Faster + Death Resume")
+        tab.Text("Version: 1.2 - Auto Collect Money Added")
         tab.Text("Thanks for using the hub!")
     end)
 end
