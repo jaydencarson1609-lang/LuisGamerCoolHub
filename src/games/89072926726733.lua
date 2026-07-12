@@ -17,7 +17,7 @@ return function(_, api)
     local collectingMoney = false
     local upgrading = false
 
-    local LOAD_SPOT = CFrame.new(357, 2, 2104)   -- Loading spot for Secret + Celestial
+    local LOBBY = CFrame.new(349, 2, -19)
 
     local function getRootPart()
         local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -26,20 +26,16 @@ return function(_, api)
 
     -- ================= MAIN TAB =================
     api.Tab("Main", function(tab)
-        -- Auto Farm Best Brainrots (with loading spot)
+        -- Auto Farm Best Brainrots (Simple + Aggressive Spam)
         tab.Toggle("Auto Farm Best Brainrots", false, function(state)
             farming = state
 
             if state then
                 task.spawn(function()
                     while farming do
-                        -- Go to loading spot first
-                        getRootPart().CFrame = LOAD_SPOT
-                        task.wait(1.2)
-
                         local items = {}
 
-                        -- Get SpawnedItems
+                        -- Get all SpawnedItem
                         local secret = workspace.ItemSpawners:FindFirstChild("Secret")
                         if secret then
                             for _, item in ipairs(secret:GetDescendants()) do
@@ -64,26 +60,26 @@ return function(_, api)
                             if item.PrimaryPart then
                                 -- Teleport to brainrot
                                 getRootPart().CFrame = item.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
-                                task.wait(0.3)
+                                task.wait(0.25)
 
-                                -- Spam prompt
+                                -- Spam E hard
                                 local prompt = item:FindFirstChildOfClass("ProximityPrompt", true)
                                 if prompt then
-                                    for i = 1, 8 do
+                                    for i = 1, 10 do
                                         fireproximityprompt(prompt)
-                                        task.wait(0.03)
+                                        task.wait(0.02)
                                     end
                                 end
 
-                                task.wait(0.4)
+                                task.wait(0.35)
 
-                                -- Go back to loading spot (important for streaming)
-                                getRootPart().CFrame = LOAD_SPOT
-                                task.wait(1.0)
+                                -- Go back to lobby
+                                getRootPart().CFrame = LOBBY
+                                task.wait(0.9)
                             end
                         end
 
-                        task.wait(0.5)
+                        task.wait(0.4)
                     end
                 end)
             end
@@ -187,7 +183,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 2.9 - Streaming Fix + Loading Spot")
+        tab.Text("Version: 3.0 - Clean & Aggressive Farm")
         tab.Text("Thanks for using the hub!")
     end)
 end
