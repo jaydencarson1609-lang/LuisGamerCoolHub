@@ -737,8 +737,117 @@ local function AddButton(text, callback)
     return Element.Button(ContentHolder, text, callback)
 end
 
+-- Gives every switch a dark faded card, rounded border and shadow.
+-- This works with both the downloaded elements.lua switch and the fallback switch.
+local function StyleSwitchElement(switchResult)
+    local row = switchResult
+
+    -- Newer element modules may return a controller table instead of the Frame.
+    if type(switchResult) == "table" then
+        row = switchResult.Instance
+            or switchResult.Row
+            or switchResult.Root
+            or switchResult.Frame
+    end
+
+    if typeof(row) ~= "Instance" or not row:IsA("GuiObject") then
+        return switchResult
+    end
+
+    row.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    row.BackgroundTransparency = 0.72
+    row.BorderSizePixel = 0
+    row.ClipsDescendants = false
+
+    local rowCorner = row:FindFirstChild("SwitchRowCorner")
+    if not rowCorner then
+        rowCorner = Instance.new("UICorner")
+        rowCorner.Name = "SwitchRowCorner"
+        rowCorner.CornerRadius = UDim.new(0, 11)
+        rowCorner.Parent = row
+    end
+
+    local rowStroke = row:FindFirstChild("SwitchRowBorder")
+    if not rowStroke then
+        rowStroke = Instance.new("UIStroke")
+        rowStroke.Name = "SwitchRowBorder"
+        rowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        rowStroke.Color = Color3.fromRGB(8, 8, 8)
+        rowStroke.Thickness = 2
+        rowStroke.Transparency = 0.18
+        rowStroke.Parent = row
+    end
+
+    local rowShadow = row:FindFirstChild("SwitchRowShadow")
+    if not rowShadow then
+        rowShadow = Instance.new("UIShadow")
+        rowShadow.Name = "SwitchRowShadow"
+        rowShadow.Color = Color3.fromRGB(0, 0, 0)
+        rowShadow.Transparency = 0.5
+        rowShadow.BlurRadius = UDim.new(0, 8)
+        rowShadow.Offset = UDim2.new(0, 0, 0, 3)
+        rowShadow.Parent = row
+    end
+
+    -- Find the visible toggle control. The normal elements.lua uses "Track";
+    -- the original placeholder/fallback uses "On/OffButton".
+    local switchControl = row:FindFirstChild("Track", true)
+        or row:FindFirstChild("On/OffButton", true)
+
+    if not switchControl then
+        for _, object in ipairs(row:GetDescendants()) do
+            if object:IsA("TextButton")
+                and object.Name ~= "ClickArea"
+                and object.BackgroundTransparency < 1 then
+
+                switchControl = object
+                break
+            end
+        end
+    end
+
+    if switchControl and switchControl:IsA("GuiObject") then
+        switchControl.BorderSizePixel = 0
+
+        local controlCorner = switchControl:FindFirstChild("SwitchControlCorner")
+            or switchControl:FindFirstChildOfClass("UICorner")
+
+        if not controlCorner then
+            controlCorner = Instance.new("UICorner")
+            controlCorner.Name = "SwitchControlCorner"
+            controlCorner.CornerRadius = UDim.new(1, 0)
+            controlCorner.Parent = switchControl
+        end
+
+        local controlStroke = switchControl:FindFirstChild("SwitchControlBorder")
+        if not controlStroke then
+            controlStroke = Instance.new("UIStroke")
+            controlStroke.Name = "SwitchControlBorder"
+            controlStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            controlStroke.Color = Color3.fromRGB(0, 0, 0)
+            controlStroke.Thickness = 2
+            controlStroke.Transparency = 0.12
+            controlStroke.Parent = switchControl
+        end
+
+        local controlShadow = switchControl:FindFirstChild("SwitchControlShadow")
+        if not controlShadow then
+            controlShadow = Instance.new("UIShadow")
+            controlShadow.Name = "SwitchControlShadow"
+            controlShadow.Color = Color3.fromRGB(0, 0, 0)
+            controlShadow.Transparency = 0.42
+            controlShadow.BlurRadius = UDim.new(0, 6)
+            controlShadow.Offset = UDim2.new(0, 0, 0, 2)
+            controlShadow.Parent = switchControl
+        end
+    end
+
+    return switchResult
+end
+
 local function AddToggle(text, default, callback)
-    return Element.Switch(ContentHolder, text, default, callback)
+    local switchResult = Element.Switch(ContentHolder, text, default, callback)
+    return StyleSwitchElement(switchResult)
 end
 
 -- Supported Games uses the imported GameElement design from asset 113037265185555.
