@@ -25,7 +25,7 @@ return function(_, api)
         return char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 5)
     end
 
-    -- All brainrots (from your list)
+    -- All brainrots
     local allBrainrots = {
         "NoobiniPizzanini", "LiriliLarila", "TimCheese", "BonecaAmbalabu", "FluriFlura",
         "PipeMan", "CactoHipopotamo", "MelonOtter", "Sushi", "Cookie", "Sushi Pingu",
@@ -52,12 +52,11 @@ return function(_, api)
         "Spider Sammy", "Speed"
     }
 
-    -- All mutations
     local mutations = {"Normal", "Galaxy", "Rainbow", "Diamond", "Gold", "Lava", "Hacker"}
 
     -- ================= MAIN TAB =================
     api.Tab("Main", function(tab)
-        -- Auto Farm Best Brainrots (old working method)
+        -- Auto Farm Best Brainrots
         tab.Toggle("Auto Farm Best Brainrots", false, function(state)
             farming = state
             if state then
@@ -180,7 +179,7 @@ return function(_, api)
             end
         end)
 
-        -- ================= NEW: Auto Claim Index =================
+        -- ================= FAST Auto Claim Index =================
         tab.Toggle("Auto Claim Index", false, function(state)
             claimingIndex = state
             if state then
@@ -193,10 +192,10 @@ return function(_, api)
                                 pcall(function()
                                     game:GetService("ReplicatedStorage").Events.ClaimIndexReward:InvokeServer(mutation, brainrot)
                                 end)
-                                task.wait(0.08) -- small delay to avoid rate limit
+                                task.wait(0.01) -- very fast
                             end
                         end
-                        task.wait(3) -- wait a bit before next full loop
+                        task.wait(0.3) -- small break between full cycles
                     end
                 end)
             end
@@ -220,7 +219,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 3.4 - Auto Claim Index Added")
+        tab.Text("Version: 3.5 - Super Fast Auto Claim Index")
         tab.Text("Thanks for using the hub!")
     end)
 end
