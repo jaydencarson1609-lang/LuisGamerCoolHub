@@ -1,22 +1,13 @@
 --[[
 src/games/89072926726733.lua — Cross the Road for Brainrot
-LuisGamerCool
+LuisGamerCoolHub
 ]]
 
--- Show notification as soon as the script is executed
+-- Notification on execute
 pcall(function()
     local Event = game:GetService("ReplicatedStorage").Events.ShowNotification
     firesignal(Event.OnClientEvent, "LuisGamerCoolHub loaded Successfully", "Success")
 end)
-
-task.wait(3)
-
-pcall(function()
-    local Event = game:GetService("ReplicatedStorage").Events.ShowNotification
-    firesignal(Event.OnClientEvent, "Subscribe to my youtube channel, here the hub, press k!", "Success")
-end)
-
-task.wait()
 
 return function(_, api)
     local Players = game:GetService("Players")
@@ -29,6 +20,8 @@ return function(_, api)
     local farming = false
     local farmSession = 0
     local startCFrame = nil
+
+    local collectingMoney = false
 
     local function getRootPart()
         local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -167,11 +160,49 @@ return function(_, api)
 
     -- ================= MAIN TAB =================
     api.Tab("Main", function(tab)
+        -- Auto Farm Best Brainrots
         tab.Toggle("Auto Farm Best Brainrots", false, function(state)
             if state then
                 if not farming then startFarming() end
             else
                 stopFarming()
+            end
+        end)
+
+        -- ================= NEW: Auto Collect Money =================
+        tab.Toggle("Auto Collect Money", false, function(state)
+            collectingMoney = state
+
+            if state then
+                task.spawn(function()
+                    while collectingMoney do
+                        local character = LocalPlayer.Character
+                        if character and character:FindFirstChild("HumanoidRootPart") then
+                            for _, plot in ipairs(workspace:GetChildren()) do
+                                if plot.Name:match("^Plot_") then
+                                    for _, floor in ipairs(plot:GetChildren()) do
+                                        if floor.Name:match("^Floor") then
+                                            local slotsFolder = floor:FindFirstChild("Slots")
+                                            if slotsFolder then
+                                                for _, slot in ipairs(slotsFolder:GetChildren()) do
+                                                    if slot.Name:match("^Slot") then
+                                                        local collectTouch = slot:FindFirstChild("CollectTouch")
+                                                        if collectTouch and collectTouch:IsA("BasePart") then
+                                                            firetouchinterest(character, collectTouch, 0)
+                                                            task.wait(0.05)
+                                                            firetouchinterest(character, collectTouch, 1)
+                                                        end
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        task.wait(1.2)
+                    end
+                end)
             end
         end)
     end)
@@ -193,7 +224,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.8 - Notification on Execute")
+        tab.Text("Version: 1.9 - Auto Collect Money Added")
         tab.Text("Thanks for using the hub!")
     end)
 end
