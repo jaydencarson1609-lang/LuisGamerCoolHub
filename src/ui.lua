@@ -1,5 +1,4 @@
 -- CUSTOM TAB TEXT VISIBILITY FIX
--- STANDARD SIDEBAR FIX: every tab stays white; selection uses only a subtle dark fade
 -- POSH LETTER-ONLY SEARCH TYPING + EXPANDED HELPFUL SETTINGS
 -- VERIFIED UI.LUA VERSION — SINGLE GUI ONLY
 -- Supported game: custom api.Tab tabs + Settings; no automatic game-name tab
@@ -704,180 +703,73 @@ if typeof(Element.ConfigureTabs) == "function" then
 end
 
 local ActiveSidebarTab = nil
-local SidebarTabTweens = {}
-local SidebarTextGuards = {}
 
-local SELECTED_TAB_TEXT = Color3.fromRGB(255, 255, 255)
-local NORMAL_TAB_TEXT = Color3.fromRGB(255, 255, 255)
-local SELECTED_TAB_COLOR = Color3.fromRGB(0, 0, 0)
-local NORMAL_TAB_COLOR = Color3.fromRGB(255, 255, 255)
-local SELECTED_TAB_TRANSPARENCY = 0.82
-local NORMAL_TAB_TRANSPARENCY = 1
-local HOVER_TAB_TRANSPARENCY = 0.90
-
-local function isSidebarTab(tab)
-    return typeof(tab) == "Instance"
-        and tab:IsA("TextButton")
-        and tab.Parent == TabScroll
-        and tab.Visible
-        and tab ~= TabTemplate
-end
-
-local function cancelSidebarTween(tab)
-    local tween = SidebarTabTweens[tab]
-
-    if tween then
-        pcall(function()
-            tween:Cancel()
-        end)
-
-        SidebarTabTweens[tab] = nil
-    end
-end
-
-local function expectedSidebarTextColor(tab)
-    return ActiveSidebarTab == tab
-        and SELECTED_TAB_TEXT
-        or NORMAL_TAB_TEXT
-end
-
-local function forceSidebarTextColor(tab)
-    if not isSidebarTab(tab) then
-        return
-    end
-
-    local expected = expectedSidebarTextColor(tab)
-
-    if tab.TextColor3 ~= expected then
-        tab.TextColor3 = expected
-    end
-
-    if tab.TextTransparency ~= 0 then
-        tab.TextTransparency = 0
-    end
-end
-
-local function applySidebarTabVisual(tab, selected, instant)
-    if not isSidebarTab(tab) then
-        return
-    end
-
-    cancelSidebarTween(tab)
-
-    tab.AutoButtonColor = false
-    tab.TextTransparency = 0
-
-    -- Text colour is applied immediately instead of tweened. This prevents
-    -- older hover/selection tweens from leaving inactive custom tabs black.
-    tab.TextColor3 = selected and SELECTED_TAB_TEXT or NORMAL_TAB_TEXT
-
-    local targetTransparency = selected
-        and SELECTED_TAB_TRANSPARENCY
-        or NORMAL_TAB_TRANSPARENCY
-    local targetColor = selected and SELECTED_TAB_COLOR or NORMAL_TAB_COLOR
-
-    if instant then
-        tab.BackgroundColor3 = targetColor
-        tab.BackgroundTransparency = targetTransparency
-    else
-        local tween = TweenService:Create(
-            tab,
-            TweenInfo.new(
-                0.18,
-                Enum.EasingStyle.Quart,
-                Enum.EasingDirection.Out
-            ),
-            {
-                BackgroundColor3 = targetColor,
-                BackgroundTransparency = targetTransparency,
-            }
-        )
-
-        SidebarTabTweens[tab] = tween
-        tween:Play()
-    end
-
-    local shadow = tab:FindFirstChildOfClass("UIShadow")
-    if shadow then
-        local targetShadowTransparency = selected and 0.55 or 0.75
-
-        if instant then
-            shadow.Transparency = targetShadowTransparency
-        else
-            TweenService:Create(
-                shadow,
-                TweenInfo.new(
-                    0.18,
-                    Enum.EasingStyle.Quart,
-                    Enum.EasingDirection.Out
-                ),
-                { Transparency = targetShadowTransparency }
-            ):Play()
-        end
-    end
-end
-
-local function refreshSidebarTabs(instant)
-    for _, tab in ipairs(TabScroll:GetChildren()) do
-        if isSidebarTab(tab) then
-            applySidebarTabVisual(tab, tab == ActiveSidebarTab, instant)
-        end
-    end
-end
-
--- One shared selected-state controller for every sidebar tab, including
--- game-created tabs and the built-in Settings tab.
 local function setTabSelected(selectedTab, instant)
-    if selectedTab and not isSidebarTab(selectedTab) then
-        return
-    end
-
     ActiveSidebarTab = selectedTab
-    refreshSidebarTabs(instant)
 
-    -- Run another hard refresh after Roblox has processed any click/hover
-    -- events from the same frame. This keeps every inactive tab white.
-    task.defer(function()
-        if ActiveSidebarTab == selectedTab then
-            refreshSidebarTabs(true)
-        end
-    end)
+    local duration = instant and 0 or 0.18
+    local info = TweenInfo.new(duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
-    task.delay(0.22, function()
-        if ActiveSidebarTab == selectedTab then
-            refreshSidebarTabs(true)
+    for _, tab in ipairs(TabScroll:GetChildren()) do
+        if tab:IsA("TextButton") and tab.Visible then
+            local isSelected = tab == selectedTab
+            local goals = {
+                BackgroundTransparency = isSelected and 0.82 or 1,
+                -- Keep every sidebar label white. Selection is shown only by
+                -- the smooth faded background and stronger shadow.
+                TextColor3 = Color3.fromRGB(255, 255, 255),
+            }
+
+            if instant then
+                tab.BackgroundTransparency = goals.BackgroundTransparency
+                tab.TextColor3 = goals.TextColor3
+            else
+                TweenService:Create(tab, info, goals):Play()
+            end
+
+            local shadow = tab:FindFirstChildOfClass("UIShadow")
+            if shadow then
+                local shadowGoal = isSelected and 0.55 or 0.75
+                if instant then
+                    shadow.Transparency = shadowGoal
+                else
+                    TweenService:Create(shadow, info, {
+                        Transparency = shadowGoal,
+                    }):Play()
+                end
+            end
         end
-    end)
+    end
 end
 
 local function AddTabHover(tab)
-    local hoverIn = TweenInfo.new(
-        0.15,
-        Enum.EasingStyle.Quad,
-        Enum.EasingDirection.Out
-    )
+    local hoverIn = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local hoverOut = TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
     tab.MouseEnter:Connect(function()
-        forceSidebarTextColor(tab)
-
         if ActiveSidebarTab == tab then
             return
         end
 
-        cancelSidebarTween(tab)
-        SidebarTabTweens[tab] = TweenService:Create(tab, hoverIn, {
-            BackgroundColor3 = SELECTED_TAB_COLOR,
-            BackgroundTransparency = HOVER_TAB_TRANSPARENCY,
-        })
-        SidebarTabTweens[tab]:Play()
+        TweenService:Create(tab, hoverIn, {
+            BackgroundTransparency = 0.87,
+            TextColor3 = Color3.fromRGB(245, 255, 245),
+        }):Play()
     end)
 
     tab.MouseLeave:Connect(function()
-        applySidebarTabVisual(
-            tab,
-            ActiveSidebarTab == tab,
-            false
-        )
+        if ActiveSidebarTab == tab then
+            TweenService:Create(tab, hoverOut, {
+                BackgroundTransparency = 0.82,
+                TextColor3 = Color3.fromRGB(255, 255, 255),
+            }):Play()
+            return
+        end
+
+        TweenService:Create(tab, hoverOut, {
+            BackgroundTransparency = 1,
+            TextColor3 = Color3.fromRGB(255, 255, 255),
+        }):Play()
     end)
 end
 
@@ -886,12 +778,9 @@ local function AddTab(name)
 
     tab.Text = tostring(name or "Tab")
     tab.Visible = true
-    tab.AutoButtonColor = false
     tab.TextTransparency = 0
-    tab.TextColor3 = NORMAL_TAB_TEXT
-    tab.BackgroundColor3 = NORMAL_TAB_COLOR
-    tab.BackgroundTransparency = NORMAL_TAB_TRANSPARENCY
-    tab:SetAttribute("LuisSidebarTab", true)
+    tab.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tab.BackgroundTransparency = 1
 
     local tabShadow = tab:FindFirstChildOfClass("UIShadow")
     if tabShadow then
@@ -906,16 +795,10 @@ local function AddTab(name)
     tab.Parent = TabScroll
     AddTabHover(tab)
 
-    -- Guard against any old custom-tab code changing inactive text to black.
-    SidebarTextGuards[tab] = tab:GetPropertyChangedSignal("TextColor3"):Connect(function()
-        forceSidebarTextColor(tab)
-    end)
-
     tab.MouseButton1Click:Connect(function()
         setTabSelected(tab)
     end)
 
-    forceSidebarTextColor(tab)
     return tab
 end
 
@@ -2337,7 +2220,7 @@ local function AddGameCustomTab(name, builder)
     tabButton.LayoutOrder = nextCustomTabOrder
     tabButton.Text = name
     tabButton.TextTransparency = 0
-    forceSidebarTextColor(tabButton)
+    tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     nextCustomTabOrder += 1
 
     local function openTab()
@@ -4420,7 +4303,9 @@ local toggleConnection = UserInputService.InputBegan:Connect(function(input, gp)
         return
     end
 
-    if gp then
+    -- Do not toggle while the player is typing into a TextBox. Otherwise,
+    -- allow K even when the current game marks the input as processed.
+    if UserInputService:GetFocusedTextBox() then
         return
     end
 
