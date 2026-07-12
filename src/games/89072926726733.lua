@@ -17,44 +17,41 @@ return function(_, api)
     local collectingMoney = false
     local upgrading = false
 
+    local LOAD_SPOT = CFrame.new(357, 2, 2104)   -- Loading spot for Secret + Celestial
+
     local function getRootPart()
         local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
         return char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 5)
     end
 
-    local function teleport(root, cframe)
-        if root and cframe then
-            root.AssemblyLinearVelocity = Vector3.zero
-            root.AssemblyAngularVelocity = Vector3.zero
-            root.CFrame = cframe
-        end
-    end
-
     -- ================= MAIN TAB =================
     api.Tab("Main", function(tab)
-        -- Auto Farm Best Brainrots (working version)
+        -- Auto Farm Best Brainrots (with loading spot)
         tab.Toggle("Auto Farm Best Brainrots", false, function(state)
             farming = state
 
             if state then
                 task.spawn(function()
                     while farming do
+                        -- Go to loading spot first
+                        getRootPart().CFrame = LOAD_SPOT
+                        task.wait(1.2)
+
                         local items = {}
 
-                        -- Get SpawnedItems from Secret
+                        -- Get SpawnedItems
                         local secret = workspace.ItemSpawners:FindFirstChild("Secret")
                         if secret then
-                            for _, item in ipairs(secret:GetChildren()) do
+                            for _, item in ipairs(secret:GetDescendants()) do
                                 if item:IsA("Model") and item.Name == "SpawnedItem" then
                                     table.insert(items, item)
                                 end
                             end
                         end
 
-                        -- Get SpawnedItems from Celestial
                         local celestial = workspace.ItemSpawners:FindFirstChild("Celestial")
                         if celestial then
-                            for _, item in ipairs(celestial:GetChildren()) do
+                            for _, item in ipairs(celestial:GetDescendants()) do
                                 if item:IsA("Model") and item.Name == "SpawnedItem" then
                                     table.insert(items, item)
                                 end
@@ -65,24 +62,28 @@ return function(_, api)
                             if not farming then break end
 
                             if item.PrimaryPart then
-                                teleport(getRootPart(), item.PrimaryPart.CFrame + Vector3.new(0, 3, 0))
-                                task.wait(0.2)
+                                -- Teleport to brainrot
+                                getRootPart().CFrame = item.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
+                                task.wait(0.3)
 
+                                -- Spam prompt
                                 local prompt = item:FindFirstChildOfClass("ProximityPrompt", true)
                                 if prompt then
-                                    for i = 1, 6 do
+                                    for i = 1, 8 do
                                         fireproximityprompt(prompt)
-                                        task.wait(0.04)
+                                        task.wait(0.03)
                                     end
                                 end
 
-                                task.wait(0.3)
-                                teleport(getRootPart(), CFrame.new(349, 2, -19))
-                                task.wait(0.8)
+                                task.wait(0.4)
+
+                                -- Go back to loading spot (important for streaming)
+                                getRootPart().CFrame = LOAD_SPOT
+                                task.wait(1.0)
                             end
                         end
 
-                        task.wait(0.4)
+                        task.wait(0.5)
                     end
                 end)
             end
@@ -159,7 +160,7 @@ return function(_, api)
             end
         end)
 
-        -- Remove Cars (as toggle)
+        -- Remove Cars (Toggle)
         tab.Toggle("Remove Cars", false, function(state)
             if state then
                 if workspace:FindFirstChild("CarSpawn") then
@@ -186,7 +187,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 2.7 - Stable Version")
+        tab.Text("Version: 2.9 - Streaming Fix + Loading Spot")
         tab.Text("Thanks for using the hub!")
     end)
 end
