@@ -13,88 +13,82 @@ return function(_, api)
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
 
+    local farming = false
     local collectingMoney = false
     local upgrading = false
 
-    local function getMyPlot()
-        for _, plot in ipairs(workspace:GetChildren()) do
-            if plot.Name:match("^Plot_") then
-                for _, d in ipairs(plot:GetDescendants()) do
-                    if (d:IsA("TextLabel") or d:IsA("BillboardGui")) and d.Text then
-                        if d.Text:lower() == LocalPlayer.Name:lower() then
-                            return plot
-                        end
-                    end
-                end
-            end
+    local function getRootPart()
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        return char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 5)
+    end
+
+    local function teleport(root, cframe)
+        if root and cframe then
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+            root.CFrame = cframe
         end
-        return nil
     end
 
     -- ================= MAIN TAB =================
     api.Tab("Main", function(tab)
-        -- ================= BETTER AUTO FARM BRAINROTS =================
-        local farming = false
-
+        -- Auto Farm Best Brainrots (working version)
         tab.Toggle("Auto Farm Best Brainrots", false, function(state)
             farming = state
 
             if state then
                 task.spawn(function()
                     while farming do
-                        -- Celestial
-                        local celestial = workspace.ItemSpawners:FindFirstChild("Celestial")
-                        if celestial then
-                            for _, br in ipairs(celestial:GetChildren()) do
-                                if farming and br.PrimaryPart then
-                                    LocalPlayer.Character:MoveTo(br.PrimaryPart.Position)
-                                    task.wait(0.5)
+                        local items = {}
 
-                                    local prompt = br.PrimaryPart:FindFirstChildOfClass("ProximityPrompt")
-                                    if prompt then
-                                        repeat
-                                            fireproximityprompt(prompt)
-                                            task.wait()
-                                        until not farming or not br or br.Parent ~= celestial
-                                    end
-
-                                    task.wait(0.5)
-                                    LocalPlayer.Character:MoveTo(Vector3.new(343, 2, -15))
-                                    task.wait(1.5)
-                                end
-                            end
-                        end
-
-                        -- Secret
+                        -- Get SpawnedItems from Secret
                         local secret = workspace.ItemSpawners:FindFirstChild("Secret")
                         if secret then
-                            for _, br in ipairs(secret:GetChildren()) do
-                                if farming and br.PrimaryPart then
-                                    LocalPlayer.Character:MoveTo(br.PrimaryPart.Position)
-                                    task.wait(0.5)
-
-                                    local prompt = br.PrimaryPart:FindFirstChildOfClass("ProximityPrompt")
-                                    if prompt then
-                                        repeat
-                                            fireproximityprompt(prompt)
-                                            task.wait()
-                                        until not farming or not br or br.Parent ~= secret
-                                    end
-
-                                    task.wait(0.5)
-                                    LocalPlayer.Character:MoveTo(Vector3.new(343, 2, -15))
-                                    task.wait(1.5)
+                            for _, item in ipairs(secret:GetChildren()) do
+                                if item:IsA("Model") and item.Name == "SpawnedItem" then
+                                    table.insert(items, item)
                                 end
                             end
                         end
 
-                        task.wait(0.3)
+                        -- Get SpawnedItems from Celestial
+                        local celestial = workspace.ItemSpawners:FindFirstChild("Celestial")
+                        if celestial then
+                            for _, item in ipairs(celestial:GetChildren()) do
+                                if item:IsA("Model") and item.Name == "SpawnedItem" then
+                                    table.insert(items, item)
+                                end
+                            end
+                        end
+
+                        for _, item in ipairs(items) do
+                            if not farming then break end
+
+                            if item.PrimaryPart then
+                                teleport(getRootPart(), item.PrimaryPart.CFrame + Vector3.new(0, 3, 0))
+                                task.wait(0.2)
+
+                                local prompt = item:FindFirstChildOfClass("ProximityPrompt", true)
+                                if prompt then
+                                    for i = 1, 6 do
+                                        fireproximityprompt(prompt)
+                                        task.wait(0.04)
+                                    end
+                                end
+
+                                task.wait(0.3)
+                                teleport(getRootPart(), CFrame.new(349, 2, -19))
+                                task.wait(0.8)
+                            end
+                        end
+
+                        task.wait(0.4)
                     end
                 end)
             end
         end)
 
-        -- Auto Collect Money (working method)
+        -- Auto Collect Money
         tab.Toggle("Auto Collect Money", false, function(state)
             collectingMoney = state
 
@@ -135,7 +129,7 @@ return function(_, api)
             if state then
                 task.spawn(function()
                     while upgrading do
-                        local myPlot = getMyPlot()
+                        local myPlot = workspace:FindFirstChild("Plot_" .. LocalPlayer.Name)
                         if myPlot then
                             for _, floor in ipairs(myPlot:GetChildren()) do
                                 if floor.Name:match("^Floor") then
@@ -165,10 +159,12 @@ return function(_, api)
             end
         end)
 
-        -- Remove Cars
-        tab.Button("Remove Cars", function()
-            if workspace:FindFirstChild("CarSpawn") then
-                workspace.CarSpawn:Destroy()
+        -- Remove Cars (as toggle)
+        tab.Toggle("Remove Cars", false, function(state)
+            if state then
+                if workspace:FindFirstChild("CarSpawn") then
+                    workspace.CarSpawn:Destroy()
+                end
             end
         end)
     end)
@@ -190,7 +186,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 2.6 - Improved Brainrot Farm + Remove Cars")
+        tab.Text("Version: 2.7 - Stable Version")
         tab.Text("Thanks for using the hub!")
     end)
 end
