@@ -22,6 +22,7 @@ return function(_, api)
     local startCFrame = nil
 
     local collectingMoney = false
+    local upgrading = false
 
     local function getRootPart()
         local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -34,6 +35,22 @@ return function(_, api)
             root.AssemblyAngularVelocity = Vector3.zero
             root.CFrame = cframe
         end
+    end
+
+    -- Find the player's own plot
+    local function getMyPlot()
+        for _, plot in ipairs(workspace:GetChildren()) do
+            if plot.Name:match("^Plot_") then
+                for _, descendant in ipairs(plot:GetDescendants()) do
+                    if (descendant:IsA("TextLabel") or descendant:IsA("BillboardGui")) and descendant.Text then
+                        if descendant.Text:lower() == LocalPlayer.Name:lower() then
+                            return plot
+                        end
+                    end
+                end
+            end
+        end
+        return nil
     end
 
     local function activatePrompt(prompt)
@@ -169,29 +186,28 @@ return function(_, api)
             end
         end)
 
-        -- ================= NEW: Auto Collect Money =================
+        -- Auto Collect Money (only your plot)
         tab.Toggle("Auto Collect Money", false, function(state)
             collectingMoney = state
 
             if state then
                 task.spawn(function()
                     while collectingMoney do
-                        local character = LocalPlayer.Character
-                        if character and character:FindFirstChild("HumanoidRootPart") then
-                            for _, plot in ipairs(workspace:GetChildren()) do
-                                if plot.Name:match("^Plot_") then
-                                    for _, floor in ipairs(plot:GetChildren()) do
-                                        if floor.Name:match("^Floor") then
-                                            local slotsFolder = floor:FindFirstChild("Slots")
-                                            if slotsFolder then
-                                                for _, slot in ipairs(slotsFolder:GetChildren()) do
-                                                    if slot.Name:match("^Slot") then
-                                                        local collectTouch = slot:FindFirstChild("CollectTouch")
-                                                        if collectTouch and collectTouch:IsA("BasePart") then
-                                                            firetouchinterest(character, collectTouch, 0)
-                                                            task.wait(0.05)
-                                                            firetouchinterest(character, collectTouch, 1)
-                                                        end
+                        local myPlot = getMyPlot()
+                        if myPlot then
+                            for _, floor in ipairs(myPlot:GetChildren()) do
+                                if floor.Name:match("^Floor") then
+                                    local slots = floor:FindFirstChild("Slots")
+                                    if slots then
+                                        for _, slot in ipairs(slots:GetChildren()) do
+                                            if slot.Name:match("^Slot") then
+                                                local collectTouch = slot:FindFirstChild("CollectTouch")
+                                                if collectTouch and collectTouch:IsA("BasePart") then
+                                                    local character = LocalPlayer.Character
+                                                    if character then
+                                                        firetouchinterest(character, collectTouch, 0)
+                                                        task.wait(0.05)
+                                                        firetouchinterest(character, collectTouch, 1)
                                                     end
                                                 end
                                             end
@@ -201,6 +217,45 @@ return function(_, api)
                             end
                         end
                         task.wait(1.2)
+                    end
+                end)
+            end
+        end)
+
+        -- Auto Upgrade
+        tab.Toggle("Auto Upgrade", false, function(state)
+            upgrading = state
+
+            if state then
+                task.spawn(function()
+                    while upgrading do
+                        local myPlot = getMyPlot()
+                        if myPlot then
+                            for _, floor in ipairs(myPlot:GetChildren()) do
+                                if floor.Name:match("^Floor") then
+                                    local slots = floor:FindFirstChild("Slots")
+                                    if slots then
+                                        for _, slot in ipairs(slots:GetChildren()) do
+                                            if slot.Name:match("^Slot") then
+                                                local upgradePart = slot:FindFirstChild("UpgradePart")
+                                                if upgradePart then
+                                                    local upgradeButton = upgradePart:FindFirstChild("UpgradeGUI", true)
+                                                    if upgradeButton then
+                                                        upgradeButton = upgradeButton:FindFirstChild("UpgradeButton")
+                                                    end
+                                                    if upgradeButton and upgradeButton:IsA("TextButton") then
+                                                        pcall(function()
+                                                            firesignal(upgradeButton.MouseButton1Click)
+                                                        end)
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        task.wait(2)
                     end
                 end)
             end
@@ -224,7 +279,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.9 - Auto Collect Money Added")
+        tab.Text("Version: 2.0 - Auto Collect + Auto Upgrade")
         tab.Text("Thanks for using the hub!")
     end)
 end
