@@ -13,164 +13,88 @@ return function(_, api)
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
 
-    local LOAD_CFRAME = CFrame.new(360, 2, 2076)
-    local SECRET_LOAD = CFrame.new(383, 2, 2093)
-    local LOBBY_CFRAME = CFrame.new(349, 2, -19)
-
-    local farming = false
-    local farmSession = 0
-    local startCFrame = nil
-
     local collectingMoney = false
     local upgrading = false
 
-    local function getRootPart()
-        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-        return char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 5)
-    end
-
-    local function teleport(root, cframe)
-        if root and cframe then
-            root.AssemblyLinearVelocity = Vector3.zero
-            root.AssemblyAngularVelocity = Vector3.zero
-            root.CFrame = cframe
-        end
-    end
-
-    local function activatePrompt(prompt)
-        if not prompt or not prompt:IsA("ProximityPrompt") then return end
-
-        if typeof(fireproximityprompt) == "function" then
-            pcall(function() fireproximityprompt(prompt, 0) end)
-            return
-        end
-
-        local old = prompt.HoldDuration
-        pcall(function()
-            prompt.HoldDuration = 0
-            prompt:InputHoldBegin()
-            task.wait(0.1)
-            prompt:InputHoldEnd()
-        end)
-        pcall(function() prompt.HoldDuration = old end)
-    end
-
-    local function isBestBrainrot(item)
-        local name = item.Name:lower()
-        if name:find("legendary") or name:find("mythical") then
-            return false
-        end
-        local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
-        if prompt and prompt.ObjectText then
-            local text = prompt.ObjectText:lower()
-            if text:find("legendary") or text:find("mythical") then
-                return false
-            end
-        end
-        return true
-    end
-
-    local function getTargetSpawnedItems()
-        local items = {}
-        local spawners = workspace:FindFirstChild("ItemSpawners")
-        if not spawners then return items end
-
-        -- SECRET
-        local secret = spawners:FindFirstChild("Secret")
-        if secret then
-            local root = getRootPart()
-            if root then
-                teleport(root, SECRET_LOAD)
-                task.wait(1.0)
-            end
-
-            for _, item in ipairs(secret:GetChildren()) do
-                if item:IsA("Model") and item.Name == "SpawnedItem" and isBestBrainrot(item) then
-                    table.insert(items, item)
-                end
-            end
-        end
-
-        -- CELESTIAL
-        local celestial = spawners:FindFirstChild("Celestial")
-        if celestial then
-            for _, item in ipairs(celestial:GetChildren()) do
-                if item:IsA("Model") and item.Name == "SpawnedItem" and isBestBrainrot(item) then
-                    table.insert(items, item)
-                end
-            end
-        end
-
-        return items
-    end
-
-    local function startFarming()
-        local root = getRootPart()
-        if not root then return end
-
-        startCFrame = root.CFrame
-        farming = true
-        farmSession += 1
-        local session = farmSession
-
-        task.spawn(function()
-            teleport(root, LOAD_CFRAME)
-            task.wait(0.8)
-
-            while farming and farmSession == session do
-                local items = getTargetSpawnedItems()
-
-                for _, item in ipairs(items) do
-                    if not farming or farmSession ~= session then break end
-
-                    local pos = item.PrimaryPart and item.PrimaryPart.Position or item:GetPivot().Position
-                    teleport(root, CFrame.new(pos + Vector3.new(0, 3, 0)))
-                    task.wait(0.15)
-
-                    local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
-                    if prompt then
-                        for i = 1, 5 do
-                            activatePrompt(prompt)
-                            task.wait(0.03)
+    local function getMyPlot()
+        for _, plot in ipairs(workspace:GetChildren()) do
+            if plot.Name:match("^Plot_") then
+                for _, d in ipairs(plot:GetDescendants()) do
+                    if (d:IsA("TextLabel") or d:IsA("BillboardGui")) and d.Text then
+                        if d.Text:lower() == LocalPlayer.Name:lower() then
+                            return plot
                         end
                     end
-
-                    task.wait(0.2)
-
-                    teleport(root, LOBBY_CFRAME)
-                    task.wait(0.6)
                 end
-
-                task.wait(0.3)
             end
-
-            if startCFrame then
-                teleport(root, startCFrame)
-            end
-        end)
-    end
-
-    local function stopFarming()
-        farming = false
-        farmSession += 1
-        local root = getRootPart()
-        if root and startCFrame then
-            teleport(root, startCFrame)
         end
+        return nil
     end
 
     -- ================= MAIN TAB =================
     api.Tab("Main", function(tab)
-        -- Auto Farm Best Brainrots
+        -- ================= BETTER AUTO FARM BRAINROTS =================
+        local farming = false
+
         tab.Toggle("Auto Farm Best Brainrots", false, function(state)
+            farming = state
+
             if state then
-                if not farming then startFarming() end
-            else
-                stopFarming()
+                task.spawn(function()
+                    while farming do
+                        -- Celestial
+                        local celestial = workspace.ItemSpawners:FindFirstChild("Celestial")
+                        if celestial then
+                            for _, br in ipairs(celestial:GetChildren()) do
+                                if farming and br.PrimaryPart then
+                                    LocalPlayer.Character:MoveTo(br.PrimaryPart.Position)
+                                    task.wait(0.5)
+
+                                    local prompt = br.PrimaryPart:FindFirstChildOfClass("ProximityPrompt")
+                                    if prompt then
+                                        repeat
+                                            fireproximityprompt(prompt)
+                                            task.wait()
+                                        until not farming or not br or br.Parent ~= celestial
+                                    end
+
+                                    task.wait(0.5)
+                                    LocalPlayer.Character:MoveTo(Vector3.new(343, 2, -15))
+                                    task.wait(1.5)
+                                end
+                            end
+                        end
+
+                        -- Secret
+                        local secret = workspace.ItemSpawners:FindFirstChild("Secret")
+                        if secret then
+                            for _, br in ipairs(secret:GetChildren()) do
+                                if farming and br.PrimaryPart then
+                                    LocalPlayer.Character:MoveTo(br.PrimaryPart.Position)
+                                    task.wait(0.5)
+
+                                    local prompt = br.PrimaryPart:FindFirstChildOfClass("ProximityPrompt")
+                                    if prompt then
+                                        repeat
+                                            fireproximityprompt(prompt)
+                                            task.wait()
+                                        until not farming or not br or br.Parent ~= secret
+                                    end
+
+                                    task.wait(0.5)
+                                    LocalPlayer.Character:MoveTo(Vector3.new(343, 2, -15))
+                                    task.wait(1.5)
+                                end
+                            end
+                        end
+
+                        task.wait(0.3)
+                    end
+                end)
             end
         end)
 
-        -- Auto Collect Money (exact method that works)
+        -- Auto Collect Money (working method)
         tab.Toggle("Auto Collect Money", false, function(state)
             collectingMoney = state
 
@@ -181,49 +105,18 @@ return function(_, api)
                         local myPlot = workspace:FindFirstChild(plotName)
 
                         if myPlot then
-                            -- Floor 1
-                            local floor1 = myPlot:FindFirstChild("Floor1")
-                            if floor1 then
-                                local slots1 = floor1:FindFirstChild("Slots")
-                                if slots1 then
-                                    for _, slot in ipairs(slots1:GetChildren()) do
-                                        local collectTouch = slot:FindFirstChild("CollectTouch")
-                                        if collectTouch then
-                                            firetouchinterest(LocalPlayer.Character.Head, collectTouch, true)
-                                            task.wait()
-                                            firetouchinterest(LocalPlayer.Character.Head, collectTouch, false)
-                                        end
-                                    end
-                                end
-                            end
-
-                            -- Floor 2
-                            local floor2 = myPlot:FindFirstChild("Floor2")
-                            if floor2 then
-                                local slots2 = floor2:FindFirstChild("Slots")
-                                if slots2 then
-                                    for _, slot in ipairs(slots2:GetChildren()) do
-                                        local collectTouch = slot:FindFirstChild("CollectTouch")
-                                        if collectTouch then
-                                            firetouchinterest(LocalPlayer.Character.Head, collectTouch, true)
-                                            task.wait()
-                                            firetouchinterest(LocalPlayer.Character.Head, collectTouch, false)
-                                        end
-                                    end
-                                end
-                            end
-
-                            -- Floor 3
-                            local floor3 = myPlot:FindFirstChild("Floor3")
-                            if floor3 then
-                                local slots3 = floor3:FindFirstChild("Slots")
-                                if slots3 then
-                                    for _, slot in ipairs(slots3:GetChildren()) do
-                                        local collectTouch = slot:FindFirstChild("CollectTouch")
-                                        if collectTouch then
-                                            firetouchinterest(LocalPlayer.Character.Head, collectTouch, true)
-                                            task.wait()
-                                            firetouchinterest(LocalPlayer.Character.Head, collectTouch, false)
+                            for i = 1, 3 do
+                                local floor = myPlot:FindFirstChild("Floor" .. i)
+                                if floor then
+                                    local slots = floor:FindFirstChild("Slots")
+                                    if slots then
+                                        for _, slot in ipairs(slots:GetChildren()) do
+                                            local collectTouch = slot:FindFirstChild("CollectTouch")
+                                            if collectTouch then
+                                                firetouchinterest(LocalPlayer.Character.Head, collectTouch, true)
+                                                task.wait()
+                                                firetouchinterest(LocalPlayer.Character.Head, collectTouch, false)
+                                            end
                                         end
                                     end
                                 end
@@ -242,9 +135,7 @@ return function(_, api)
             if state then
                 task.spawn(function()
                     while upgrading do
-                        local plotName = "Plot_" .. LocalPlayer.Name
-                        local myPlot = workspace:FindFirstChild(plotName)
-
+                        local myPlot = getMyPlot()
                         if myPlot then
                             for _, floor in ipairs(myPlot:GetChildren()) do
                                 if floor.Name:match("^Floor") then
@@ -273,6 +164,13 @@ return function(_, api)
                 end)
             end
         end)
+
+        -- Remove Cars
+        tab.Button("Remove Cars", function()
+            if workspace:FindFirstChild("CarSpawn") then
+                workspace.CarSpawn:Destroy()
+            end
+        end)
     end)
 
     -- ================= EXTRA TAB =================
@@ -292,7 +190,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 2.5 -- WORKING YIPPE!")
+        tab.Text("Version: 2.6 - Improved Brainrot Farm + Remove Cars")
         tab.Text("Thanks for using the hub!")
     end)
 end
