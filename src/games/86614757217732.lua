@@ -1,19 +1,30 @@
 --[[
-src/games/86614757217732.lua — UI Test (Only Tabs 1 and 2)
+src/games/86614757217732.lua — UI Test
 ]]
 
 return function(_, api)
-    api.Tab("1", function(tab)
-        tab.Text("This is tab 1")
-        tab.Button("Press Me", function()
-            print("Button in tab 1 was pressed")
+    api.Tab("Main", function(tab)
+        tab.Toggle("Test Toggle One", false, function(state)
+            print("Test Toggle One:", state)
+        end)
+
+        tab.Toggle("Test Toggle Two", false, function(state)
+            print("Test Toggle Two:", state)
+        end)
+
+        tab.Toggle("Test Toggle Three", false, function(state)
+            print("Test Toggle Three:", state)
         end)
     end)
 
-    api.Tab("2", function(tab)
-        tab.Text("This is tab 2")
-        tab.Button("Press Me Too", function()
-            print("Button in tab 2 was pressed")
+    api.Tab("Extra", function(tab)
+        tab.Button("Press Me", function()
+            print("Extra button was pressed")
         end)
+    end)
+
+    api.Tab("Credits", function(tab)
+        tab.Text("LuisGamerCoolHub")
+        tab.Text("Created by Jayden")
     end)
 end
