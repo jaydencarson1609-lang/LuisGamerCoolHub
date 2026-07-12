@@ -1,6 +1,6 @@
 --[[
 src/games/89072926726733.lua — Cross the Road for Brainrot
-LuisGamerCoolHub
+LuisGamerCool
 ]]
 
 -- Show notification as soon as the script is executed
