@@ -6,7 +6,6 @@ LuisGamerCoolHub
 return function(_, api)
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
-
     local farming = false
 
     -- ================= MAIN TAB =================
@@ -35,7 +34,7 @@ return function(_, api)
                                 task.wait(0.3)
 
                                 -- Pickup the brainrot
-                                local prompt = topRot:FindFirstChild("PickupHitbox") and 
+                                local prompt = topRot:FindFirstChild("PickupHitbox") and
                                                topRot.PickupHitbox:FindFirstChildOfClass("ProximityPrompt")
 
                                 if prompt then
@@ -47,7 +46,7 @@ return function(_, api)
 
                                 task.wait(0.3)
 
-                                -- Collect / Sell at the collection point
+                                -- Collect / Sell
                                 local collectionPart = workspace.Map:FindFirstChild("BrainrotCollectionPart")
                                 if collectionPart then
                                     firetouchinterest(LocalPlayer.Character.Head, collectionPart, true)
@@ -69,9 +68,11 @@ return function(_, api)
         tab.Button("Infinite Yield", function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
         end)
+
         tab.Button("Dex Explorer", function()
             loadstring(game:HttpGet("https://github.com/BOXLEGENDARY/Dex/releases/latest/download/out.lua"))()
         end)
+
         tab.Button("Cobalt", function()
             loadstring(game:HttpGet("https://github.com/notpoiu/cobalt/releases/latest/download/Cobalt.luau"))()
         end)
@@ -81,7 +82,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.0 - +1 Health for Brainrots")
+        tab.Text("Version: 1.1 - +1 Health for Brainrots")
         tab.Text("Thanks for using the hub!")
     end)
 end
