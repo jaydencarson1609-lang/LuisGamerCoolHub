@@ -4,11 +4,17 @@ LuisGamerCoolHub
 ]]
 
 return function(_, api)
+    -- ================= NOTIFICATION ON LOAD =================
+    pcall(function()
+        local Event = game:GetService("ReplicatedStorage").Events.ShowNotification
+        firesignal(Event.OnClientEvent, "LuisGamerCoolHub loaded Successfully", "Success")
+    end)
+
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
 
     local LOAD_CFRAME = CFrame.new(360, 2, 2076)
-    local SECRET_LOAD = CFrame.new(383, 2, 2093)   -- right next to Secret
+    local SECRET_LOAD = CFrame.new(383, 2, 2093)
     local LOBBY_CFRAME = CFrame.new(349, 2, -19)
 
     local farming = false
@@ -66,7 +72,7 @@ return function(_, api)
         local spawners = workspace:FindFirstChild("ItemSpawners")
         if not spawners then return items end
 
-        -- SECRET - teleport here first so it loads, then grab SpawnedItem directly
+        -- SECRET
         local secret = spawners:FindFirstChild("Secret")
         if secret then
             local root = getRootPart()
@@ -178,7 +184,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.6 - Direct Secret SpawnedItem")
+        tab.Text("Version: 1.7 - Notification Added")
         tab.Text("Thanks for using the hub!")
     end)
 end
