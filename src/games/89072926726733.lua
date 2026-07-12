@@ -24,6 +24,7 @@ return function(_, api)
     local collectingMoney = false
     local upgrading = false
     local claimingIndex = false
+    local spinning = false
 
     local function getRootPart()
         local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -190,7 +191,7 @@ return function(_, api)
 
     -- ================= MAIN TAB =================
     api.Tab("Main", function(tab)
-        -- Auto Farm Best Brainrots (old working version you wanted)
+        -- Auto Farm Best Brainrots (old working version)
         tab.Toggle("Auto Farm Best Brainrots", false, function(state)
             if state then
                 if not farming then startFarming() end
@@ -199,7 +200,7 @@ return function(_, api)
             end
         end)
 
-        -- Auto Collect Money (from your working script)
+        -- Auto Collect Money
         tab.Toggle("Auto Collect Money", false, function(state)
             collectingMoney = state
             if state then
@@ -231,7 +232,7 @@ return function(_, api)
             end
         end)
 
-        -- Auto Upgrade (from your working script)
+        -- Auto Upgrade
         tab.Toggle("Auto Upgrade", false, function(state)
             upgrading = state
             if state then
@@ -276,7 +277,7 @@ return function(_, api)
             end
         end)
 
-        -- Auto Claim Index (fast version)
+        -- Auto Claim Index (fast)
         tab.Toggle("Auto Claim Index", false, function(state)
             claimingIndex = state
             if state then
@@ -293,6 +294,25 @@ return function(_, api)
                             end
                         end
                         task.wait(0.3)
+                    end
+                end)
+            end
+        end)
+
+        -- ================= NEW: Auto Spin =================
+        tab.Toggle("Auto Spin", false, function(state)
+            if state then
+                task.spawn(function()
+                    while state do
+                        pcall(function()
+                            game:GetService("ReplicatedStorage").Remotes.Functions.SpinWheel:InvokeServer()
+                        end)
+                        task.wait(0.6) -- wait for spin animation
+
+                        pcall(function()
+                            game:GetService("ReplicatedStorage").Remotes.GiveSpinPrize:FireServer()
+                        end)
+                        task.wait(1.2) -- wait before next spin
                     end
                 end)
             end
@@ -316,7 +336,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 3.6 - Only Auto Farm Changed (Old Working Version)")
+        tab.Text("Version: 3.7 - Auto Spin Added")
         tab.Text("Thanks for using the hub!")
     end)
 end
