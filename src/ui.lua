@@ -703,73 +703,135 @@ if typeof(Element.ConfigureTabs) == "function" then
 end
 
 local ActiveSidebarTab = nil
+local SidebarTabTweens = {}
 
-local function setTabSelected(selectedTab, instant)
-    ActiveSidebarTab = selectedTab
+local function cancelSidebarTween(tab)
+    local tween = SidebarTabTweens[tab]
 
-    local duration = instant and 0 or 0.18
-    local info = TweenInfo.new(duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    if tween then
+        pcall(function()
+            tween:Cancel()
+        end)
 
-    for _, tab in ipairs(TabScroll:GetChildren()) do
-        if tab:IsA("TextButton") and tab.Visible then
-            local isSelected = tab == selectedTab
-            local goals = {
-                BackgroundTransparency = isSelected and 0.82 or 1,
-                TextColor3 = isSelected
-                    and Color3.fromRGB(0, 0, 0)
-                    or Color3.fromRGB(255, 255, 255),
-            }
+        SidebarTabTweens[tab] = nil
+    end
+end
 
-            if instant then
-                tab.BackgroundTransparency = goals.BackgroundTransparency
-                tab.TextColor3 = goals.TextColor3
-            else
-                TweenService:Create(tab, info, goals):Play()
-            end
+local function applySidebarTabVisual(tab, selected, instant)
+    if typeof(tab) ~= "Instance" or not tab:IsA("TextButton") then
+        return
+    end
 
-            local shadow = tab:FindFirstChildOfClass("UIShadow")
-            if shadow then
-                local shadowGoal = isSelected and 0.55 or 0.75
-                if instant then
-                    shadow.Transparency = shadowGoal
-                else
-                    TweenService:Create(shadow, info, {
-                        Transparency = shadowGoal,
-                    }):Play()
-                end
-            end
+    cancelSidebarTween(tab)
+
+    local goals = {
+        BackgroundTransparency = selected and 0.82 or 1,
+        TextColor3 = selected
+            and Color3.fromRGB(0, 0, 0)
+            or Color3.fromRGB(255, 255, 255),
+    }
+
+    if instant then
+        tab.BackgroundTransparency = goals.BackgroundTransparency
+        tab.TextColor3 = goals.TextColor3
+    else
+        local tween = TweenService:Create(
+            tab,
+            TweenInfo.new(
+                0.18,
+                Enum.EasingStyle.Quart,
+                Enum.EasingDirection.Out
+            ),
+            goals
+        )
+
+        SidebarTabTweens[tab] = tween
+        tween:Play()
+    end
+
+    local shadow = tab:FindFirstChildOfClass("UIShadow")
+    if shadow then
+        local targetTransparency = selected and 0.55 or 0.75
+
+        if instant then
+            shadow.Transparency = targetTransparency
+        else
+            TweenService:Create(
+                shadow,
+                TweenInfo.new(
+                    0.18,
+                    Enum.EasingStyle.Quart,
+                    Enum.EasingDirection.Out
+                ),
+                { Transparency = targetTransparency }
+            ):Play()
         end
     end
 end
 
+-- One shared selected-state controller for every sidebar tab, including
+-- game-created tabs and the built-in Settings tab.
+local function setTabSelected(selectedTab, instant)
+    ActiveSidebarTab = selectedTab
+
+    for _, tab in ipairs(TabScroll:GetChildren()) do
+        if tab:IsA("TextButton")
+            and tab.Visible
+            and tab:GetAttribute("LuisSidebarTab") == true then
+
+            applySidebarTabVisual(tab, tab == selectedTab, instant)
+        end
+    end
+
+    -- Enforce the final colours after the tween. This prevents an older hover
+    -- tween from leaving previously clicked tabs black.
+    if not instant then
+        task.delay(0.2, function()
+            if ActiveSidebarTab ~= selectedTab then
+                return
+            end
+
+            for _, tab in ipairs(TabScroll:GetChildren()) do
+                if tab:IsA("TextButton")
+                    and tab.Visible
+                    and tab:GetAttribute("LuisSidebarTab") == true then
+
+                    local selected = tab == selectedTab
+                    tab.BackgroundTransparency = selected and 0.82 or 1
+                    tab.TextColor3 = selected
+                        and Color3.fromRGB(0, 0, 0)
+                        or Color3.fromRGB(255, 255, 255)
+                end
+            end
+        end)
+    end
+end
+
 local function AddTabHover(tab)
-    local hoverIn = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local hoverOut = TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local hoverIn = TweenInfo.new(
+        0.15,
+        Enum.EasingStyle.Quad,
+        Enum.EasingDirection.Out
+    )
 
     tab.MouseEnter:Connect(function()
         if ActiveSidebarTab == tab then
             return
         end
 
-        TweenService:Create(tab, hoverIn, {
+        cancelSidebarTween(tab)
+        SidebarTabTweens[tab] = TweenService:Create(tab, hoverIn, {
             BackgroundTransparency = 0.87,
-            TextColor3 = Color3.fromRGB(245, 255, 245),
-        }):Play()
+        })
+        SidebarTabTweens[tab]:Play()
     end)
 
     tab.MouseLeave:Connect(function()
-        if ActiveSidebarTab == tab then
-            TweenService:Create(tab, hoverOut, {
-                BackgroundTransparency = 0.82,
-                TextColor3 = Color3.fromRGB(0, 0, 0),
-            }):Play()
-            return
-        end
-
-        TweenService:Create(tab, hoverOut, {
-            BackgroundTransparency = 1,
-            TextColor3 = Color3.fromRGB(255, 255, 255),
-        }):Play()
+        applySidebarTabVisual(
+            tab,
+            ActiveSidebarTab == tab,
+            false
+        )
     end)
 end
 
@@ -781,6 +843,7 @@ local function AddTab(name)
     tab.TextTransparency = 0
     tab.TextColor3 = Color3.fromRGB(255, 255, 255)
     tab.BackgroundTransparency = 1
+    tab:SetAttribute("LuisSidebarTab", true)
 
     local tabShadow = tab:FindFirstChildOfClass("UIShadow")
     if tabShadow then
