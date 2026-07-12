@@ -1,4 +1,5 @@
 -- CUSTOM TAB TEXT VISIBILITY FIX
+-- SEARCHABLE SUPPORTED-GAMES LIST + RELIABLE SMOOTH DRAG VERSION
 -- VERIFIED UI.LUA VERSION — SINGLE GUI ONLY
 -- Supported game: custom api.Tab tabs + Settings; no automatic game-name tab
 -- Unsupported game: Home + Supported Games + Settings
@@ -443,6 +444,7 @@ G2L["21"] = nil
 
 -- ==================== WORKING LOGIC ====================
 local MainFrame = G2L["2"]
+local Logo = G2L["3"]
 local CloseButton = G2L["5"]
 local TabScroll = G2L["9"]
 local TabTemplate = G2L["b"]
@@ -460,6 +462,9 @@ local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
+local SoundService = game:GetService("SoundService")
+local StatsService = game:GetService("Stats")
+local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
 
 local REPO_RAW = "https://raw.githubusercontent.com/jaydencarson1609-lang/LuisGamerCoolHub/main/src/"
@@ -578,6 +583,7 @@ local CurrentPlaceId = tostring(game.PlaceId)
 local CurrentGameEntry = GameById[CurrentPlaceId]
 local originalPosition = MainFrame.Position
 local SLIDE_OFFSET = 40
+local ReduceUIAnimations = false
 
 -- HOLD-TO-CLOSE BAR
 local HoldFill = Instance.new("Frame")
@@ -637,6 +643,9 @@ RegisterFadeTargets(MainFrame)
 
 local function Fade(alpha, duration)
     duration = duration or 0.25
+    if ReduceUIAnimations then
+        duration = math.min(duration, 0.08)
+    end
     local info = TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     for _, data in ipairs(fadeTargets) do
         local inst, prop, orig = data[1], data[2], data[3]
@@ -647,6 +656,9 @@ end
 
 local function SlideFade(showing, duration)
     duration = duration or 0.32
+    if ReduceUIAnimations then
+        duration = math.min(duration, 0.08)
+    end
     local style = Enum.EasingStyle.Quart
     local direction = showing and Enum.EasingDirection.Out or Enum.EasingDirection.In
     local targetPos = showing and originalPosition
@@ -1222,25 +1234,31 @@ local function CloneStatusImage(entry)
         status.Image = GAME_ELEMENTS_ASSET
     end
 
-    status.Name = "status"
+    status.Name = "StatusSignal"
     status.BackgroundTransparency = 1
     status.AnchorPoint = Vector2.new(1, 0.5)
-    status.Position = UDim2.new(1, -8, 0.5, 0)
-    status.Size = UDim2.new(0, 23, 0, 23)
+    status.Position = UDim2.new(1, -9, 0.5, 0)
+    status.Size = UDim2.new(0, 31, 0, 31)
     status.ScaleType = Enum.ScaleType.Fit
     status.ImageColor3 = GetStatusColour(entry.status)
-    status.ZIndex = 3
+    status.ZIndex = 4
 
     return status
 end
 
+local GAME_LIST_FONT = Font.new(
+    "rbxasset://fonts/families/ComicNeueAngular.json",
+    Enum.FontWeight.Bold,
+    Enum.FontStyle.Normal
+)
+
 local function CreateGameElement(entry, layoutOrder)
-    -- Static information row: no TextButton, no hover state and no teleport click.
-    -- The ScrollingFrame handles all interaction.
+    -- This is a clean information row, not a button.
+    -- Only the game name, status signal and a faint divider are displayed.
     local row = Instance.new("Frame")
     row.Name = "GameElement"
     row.LayoutOrder = layoutOrder
-    row.Size = UDim2.new(1, -2, 0, 44)
+    row.Size = UDim2.new(1, -2, 0, 50)
     row.BackgroundTransparency = 1
     row.BorderSizePixel = 0
     row.ClipsDescendants = true
@@ -1248,32 +1266,28 @@ local function CreateGameElement(entry, layoutOrder)
     row.Selectable = false
 
     local header = Instance.new("TextLabel")
-    header.Name = "header"
+    header.Name = "GameName"
     header.BackgroundTransparency = 1
-    header.Position = UDim2.new(0, 8, 0, 0)
-    header.Size = UDim2.new(1, -48, 1, 0)
-    header.FontFace = Font.new(
-        "rbxasset://fonts/families/ComicNeueAngular.json",
-        Enum.FontWeight.Regular,
-        Enum.FontStyle.Normal
-    )
+    header.Position = UDim2.new(0, 10, 0, 0)
+    header.Size = UDim2.new(1, -59, 1, 0)
+    header.FontFace = GAME_LIST_FONT
     header.Text = tostring(entry.game or "Unknown Game")
-    header.TextColor3 = Color3.fromRGB(0, 0, 0)
-    header.TextSize = 20
+    header.TextColor3 = Color3.fromRGB(255, 255, 255)
+    header.TextSize = 23
     header.TextScaled = false
     header.TextWrapped = false
     header.TextTruncate = Enum.TextTruncate.AtEnd
     header.TextXAlignment = Enum.TextXAlignment.Left
     header.TextYAlignment = Enum.TextYAlignment.Center
     header.TextStrokeTransparency = 1
-    header.ZIndex = 2
+    header.ZIndex = 3
     header.Parent = row
 
     local headerStroke = Instance.new("UIStroke")
-    headerStroke.Name = "TextOutline"
-    headerStroke.Thickness = 1.45
-    headerStroke.Color = Color3.fromRGB(255, 255, 255)
-    headerStroke.Transparency = 0.05
+    headerStroke.Name = "GameNameOutline"
+    headerStroke.Thickness = 1.75
+    headerStroke.Color = Color3.fromRGB(0, 0, 0)
+    headerStroke.Transparency = 0.12
     headerStroke.Parent = header
 
     local status = CloneStatusImage(entry)
@@ -1283,107 +1297,311 @@ local function CreateGameElement(entry, layoutOrder)
     divider.Name = "Divider"
     divider.AnchorPoint = Vector2.new(0.5, 1)
     divider.Position = UDim2.new(0.5, 0, 1, 0)
-    divider.Size = UDim2.new(1, -16, 0, 1)
+    divider.Size = UDim2.new(1, -18, 0, 2)
     divider.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    divider.BackgroundTransparency = 0.58
+    divider.BackgroundTransparency = 0.70
     divider.BorderSizePixel = 0
-    divider.ZIndex = 1
+    divider.ZIndex = 2
     divider.Parent = row
 
     return row
 end
 
 local function AddSupportedGamesList()
+    -- One wrapper is inserted into ContentHolder so its UIListLayout does not
+    -- interfere with the search bar and scrolling list positions.
+    local shell = Instance.new("Frame")
+    shell.Name = "SupportedGamesBrowser"
+    shell.Size = UDim2.new(1, -8, 1, -4)
+    shell.BackgroundTransparency = 1
+    shell.BorderSizePixel = 0
+    shell.ClipsDescendants = true
+    shell.Parent = ContentHolder
+
+    -- ==================== SEARCH BAR ====================
+    local searchBar = Instance.new("Frame")
+    searchBar.Name = "SearchBar"
+    searchBar.Position = UDim2.new(0, 4, 0, 2)
+    searchBar.Size = UDim2.new(1, -12, 0, 48)
+    searchBar.BackgroundColor3 = Color3.fromRGB(12, 67, 28)
+    searchBar.BackgroundTransparency = 0.24
+    searchBar.BorderSizePixel = 0
+    searchBar.ClipsDescendants = true
+    searchBar.Parent = shell
+
+    local searchCorner = Instance.new("UICorner")
+    searchCorner.CornerRadius = UDim.new(0, 12)
+    searchCorner.Parent = searchBar
+
+    local searchStroke = Instance.new("UIStroke")
+    searchStroke.Name = "SearchBorder"
+    searchStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    searchStroke.Thickness = 2
+    searchStroke.Color = Color3.fromRGB(0, 0, 0)
+    searchStroke.Transparency = 0.48
+    searchStroke.Parent = searchBar
+
+    pcall(function()
+        local shadow = Instance.new("UIShadow")
+        shadow.Name = "SearchShadow"
+        shadow.Color = Color3.fromRGB(0, 0, 0)
+        shadow.Transparency = 0.72
+        shadow.BlurRadius = UDim.new(0, 7)
+        shadow.Offset = UDim2.new(0, 0, 0, 3)
+        shadow.Parent = searchBar
+    end)
+
+    local searchIcon = Instance.new("Frame")
+    searchIcon.Name = "SearchIcon"
+    searchIcon.BackgroundTransparency = 1
+    searchIcon.Position = UDim2.new(0, 13, 0.5, -13)
+    searchIcon.Size = UDim2.new(0, 28, 0, 28)
+    searchIcon.ZIndex = 3
+    searchIcon.Parent = searchBar
+
+    local searchCircle = Instance.new("Frame")
+    searchCircle.Name = "Circle"
+    searchCircle.BackgroundTransparency = 1
+    searchCircle.Position = UDim2.new(0, 2, 0, 1)
+    searchCircle.Size = UDim2.new(0, 17, 0, 17)
+    searchCircle.ZIndex = 3
+    searchCircle.Parent = searchIcon
+
+    local searchCircleCorner = Instance.new("UICorner")
+    searchCircleCorner.CornerRadius = UDim.new(1, 0)
+    searchCircleCorner.Parent = searchCircle
+
+    local searchCircleStroke = Instance.new("UIStroke")
+    searchCircleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    searchCircleStroke.Thickness = 2.4
+    searchCircleStroke.Color = Color3.fromRGB(255, 255, 255)
+    searchCircleStroke.Transparency = 0.08
+    searchCircleStroke.Parent = searchCircle
+
+    local searchHandle = Instance.new("Frame")
+    searchHandle.Name = "Handle"
+    searchHandle.AnchorPoint = Vector2.new(0.5, 0.5)
+    searchHandle.Position = UDim2.new(0, 20, 0, 20)
+    searchHandle.Size = UDim2.new(0, 10, 0, 3)
+    searchHandle.Rotation = 45
+    searchHandle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    searchHandle.BackgroundTransparency = 0.08
+    searchHandle.BorderSizePixel = 0
+    searchHandle.ZIndex = 3
+    searchHandle.Parent = searchIcon
+
+    local searchHandleCorner = Instance.new("UICorner")
+    searchHandleCorner.CornerRadius = UDim.new(1, 0)
+    searchHandleCorner.Parent = searchHandle
+
+    local searchBox = Instance.new("TextBox")
+    searchBox.Name = "SearchBox"
+    searchBox.BackgroundTransparency = 1
+    searchBox.Position = UDim2.new(0, 48, 0, 0)
+    searchBox.Size = UDim2.new(1, -93, 1, 0)
+    searchBox.ClearTextOnFocus = false
+    searchBox.FontFace = GAME_LIST_FONT
+    searchBox.PlaceholderText = "Search supported games..."
+    searchBox.PlaceholderColor3 = Color3.fromRGB(205, 226, 208)
+    searchBox.Text = ""
+    searchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    searchBox.TextSize = 20
+    searchBox.TextWrapped = false
+    searchBox.TextXAlignment = Enum.TextXAlignment.Left
+    searchBox.TextYAlignment = Enum.TextYAlignment.Center
+    searchBox.ZIndex = 3
+    searchBox.Parent = searchBar
+
+    local clearSearch = Instance.new("TextButton")
+    clearSearch.Name = "ClearSearch"
+    clearSearch.AnchorPoint = Vector2.new(1, 0.5)
+    clearSearch.Position = UDim2.new(1, -9, 0.5, 0)
+    clearSearch.Size = UDim2.new(0, 32, 0, 32)
+    clearSearch.AutoButtonColor = false
+    clearSearch.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    clearSearch.BackgroundTransparency = 0.72
+    clearSearch.BorderSizePixel = 0
+    clearSearch.FontFace = GAME_LIST_FONT
+    clearSearch.Text = "×"
+    clearSearch.TextColor3 = Color3.fromRGB(255, 255, 255)
+    clearSearch.TextSize = 25
+    clearSearch.Visible = false
+    clearSearch.ZIndex = 4
+    clearSearch.Parent = searchBar
+
+    local clearCorner = Instance.new("UICorner")
+    clearCorner.CornerRadius = UDim.new(1, 0)
+    clearCorner.Parent = clearSearch
+
+    clearSearch.MouseEnter:Connect(function()
+        TweenService:Create(
+            clearSearch,
+            TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            { BackgroundTransparency = 0.48 }
+        ):Play()
+    end)
+
+    clearSearch.MouseLeave:Connect(function()
+        TweenService:Create(
+            clearSearch,
+            TweenInfo.new(0.17, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            { BackgroundTransparency = 0.72 }
+        ):Play()
+    end)
+
+    searchBox.Focused:Connect(function()
+        TweenService:Create(
+            searchBar,
+            TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {
+                BackgroundTransparency = 0.12,
+                BackgroundColor3 = Color3.fromRGB(15, 79, 33),
+            }
+        ):Play()
+
+        TweenService:Create(
+            searchStroke,
+            TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {
+                Color = Color3.fromRGB(104, 255, 88),
+                Transparency = 0.12,
+            }
+        ):Play()
+    end)
+
+    searchBox.FocusLost:Connect(function()
+        TweenService:Create(
+            searchBar,
+            TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {
+                BackgroundTransparency = 0.24,
+                BackgroundColor3 = Color3.fromRGB(12, 67, 28),
+            }
+        ):Play()
+
+        TweenService:Create(
+            searchStroke,
+            TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {
+                Color = Color3.fromRGB(0, 0, 0),
+                Transparency = 0.48,
+            }
+        ):Play()
+    end)
+
+    -- ==================== SCROLLING RESULTS ====================
     local list = Instance.new("ScrollingFrame")
     list.Name = "SupportedGamesList"
     list.Active = true
     list.Selectable = true
     list.BackgroundTransparency = 1
     list.BorderSizePixel = 0
-    list.Size = UDim2.new(1, -8, 1, -4)
+    list.Position = UDim2.new(0, 0, 0, 58)
+    list.Size = UDim2.new(1, -3, 1, -58)
     list.CanvasSize = UDim2.new(0, 0, 0, 0)
     list.CanvasPosition = Vector2.new(0, 0)
+    list.AutomaticCanvasSize = Enum.AutomaticSize.None
     list.ScrollingDirection = Enum.ScrollingDirection.Y
     list.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
-    list.ScrollBarThickness = 7
+    list.ScrollBarThickness = 8
     list.ScrollBarImageColor3 = Color3.fromRGB(0, 0, 0)
-    list.ScrollBarImageTransparency = 0.2
+    list.ScrollBarImageTransparency = 0.18
     list.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
-    list.Parent = ContentHolder
+    list.ScrollingEnabled = true
+    list.Parent = shell
 
     local padding = Instance.new("UIPadding")
     padding.PaddingTop = UDim.new(0, 2)
-    padding.PaddingBottom = UDim.new(0, 8)
-    padding.PaddingLeft = UDim.new(0, 4)
-    padding.PaddingRight = UDim.new(0, 10)
+    padding.PaddingBottom = UDim.new(0, 10)
+    padding.PaddingLeft = UDim.new(0, 5)
+    padding.PaddingRight = UDim.new(0, 11)
     padding.Parent = list
 
     local layout = Instance.new("UIListLayout")
     layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Padding = UDim.new(0, 2)
+    layout.Padding = UDim.new(0, 3)
     layout.Parent = list
 
-    local function updateCanvas()
-        list.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 12)
-    end
+    local empty = Instance.new("TextLabel")
+    empty.Name = "NoSearchResults"
+    empty.LayoutOrder = 1000000
+    empty.Size = UDim2.new(1, -4, 0, 62)
+    empty.BackgroundTransparency = 1
+    empty.FontFace = GAME_LIST_FONT
+    empty.Text = "No supported games found."
+    empty.TextColor3 = Color3.fromRGB(255, 255, 255)
+    empty.TextSize = 21
+    empty.TextWrapped = true
+    empty.Visible = false
+    empty.Parent = list
 
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCanvas)
+    local emptyStroke = Instance.new("UIStroke")
+    emptyStroke.Thickness = 1.5
+    emptyStroke.Color = Color3.fromRGB(0, 0, 0)
+    emptyStroke.Transparency = 0.18
+    emptyStroke.Parent = empty
 
-    if #VerifiedGames == 0 then
-        local empty = Instance.new("TextLabel")
-        empty.Name = "NoGames"
-        empty.Size = UDim2.new(1, 0, 0, 46)
-        empty.BackgroundTransparency = 1
-        empty.Text = "No supported games with a valid Place ID."
-        empty.TextColor3 = Color3.fromRGB(0, 0, 0)
-        empty.TextScaled = true
-        empty.FontFace = Font.new(
-            "rbxasset://fonts/families/ComicNeueAngular.json",
-            Enum.FontWeight.Regular,
-            Enum.FontStyle.Normal
-        )
-        empty.Parent = list
-        updateCanvas()
-        return
-    end
+    local rows = {}
 
     for index, entry in ipairs(VerifiedGames) do
         local row = CreateGameElement(entry, index)
         row.Parent = list
+
+        table.insert(rows, {
+            Entry = entry,
+            Row = row,
+            SearchName = string.lower(tostring(entry.game or "")),
+        })
     end
 
-    updateCanvas()
+    local function updateCanvas()
+        list.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 14)
 
-    -- Smooth vertical wheel/trackpad scrolling on desktop.
-    -- Touch devices keep Roblox's normal touch scrolling.
-    if not UserInputService.TouchEnabled then
-        list.ScrollingEnabled = false
+        local maxY = math.max(0, list.AbsoluteCanvasSize.Y - list.AbsoluteWindowSize.Y)
+        if list.CanvasPosition.Y > maxY then
+            list.CanvasPosition = Vector2.new(0, maxY)
+        end
+    end
 
-        local targetY = 0
-        local activeTween
+    local function normaliseSearch(value)
+        value = string.lower(tostring(value or ""))
+        value = value:gsub("^%s+", "")
+        value = value:gsub("%s+$", "")
+        return value
+    end
 
-        local function smoothScroll(amount)
-            local maxY = math.max(0, list.AbsoluteCanvasSize.Y - list.AbsoluteWindowSize.Y)
-            targetY = math.clamp(targetY + amount, 0, maxY)
+    local function applySearch()
+        local query = normaliseSearch(searchBox.Text)
+        local visibleCount = 0
 
-            if activeTween then
-                activeTween:Cancel()
+        for _, data in ipairs(rows) do
+            local matches = query == ""
+                or string.find(data.SearchName, query, 1, true) ~= nil
+
+            data.Row.Visible = matches
+
+            if matches then
+                visibleCount += 1
             end
-
-            activeTween = TweenService:Create(
-                list,
-                TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                { CanvasPosition = Vector2.new(0, targetY) }
-            )
-            activeTween:Play()
         end
 
-        list.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseWheel then
-                smoothScroll(-input.Position.Z * 85)
-            end
-        end)
+        empty.Visible = visibleCount == 0
+        clearSearch.Visible = query ~= ""
+        list.CanvasPosition = Vector2.new(0, 0)
+
+        task.defer(updateCanvas)
     end
+
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCanvas)
+    searchBox:GetPropertyChangedSignal("Text"):Connect(applySearch)
+
+    clearSearch.MouseButton1Click:Connect(function()
+        searchBox.Text = ""
+        searchBox:CaptureFocus()
+    end)
+
+    applySearch()
+    task.defer(updateCanvas)
 end
 
 --============================================================
@@ -1593,19 +1811,965 @@ local function ShowSupportedGames()
     AddSupportedGamesList()
 end
 
+--============================================================
+-- SETTINGS STATE + CLEAN SECTIONED SETTINGS PAGE
+-- The rounded labels such as "Performance" and "PC Controls" are section
+-- headers. They keep the layout organised on both desktop and mobile.
+--============================================================
+local HubDefaultPosition = originalPosition
+
+-- Forward declarations used by settings callbacks. The real drag handle and
+-- drag target are created in the bottom-drag section later in this file.
+local DragHandle
+local dragTargetPosition
+
+local SettingsState = {
+    -- Performance
+    DisableShadows = false,
+    DisableRendering = false,
+    LowGraphics = false,
+    DisableParticles = false,
+    DisablePostProcessing = false,
+
+    -- Visuals and information
+    Fullbright = false,
+    RemoveFog = false,
+    ShowFPS = false,
+    ShowPing = false,
+    ShowMemory = false,
+    ShowClock = false,
+    ShowPlayerCount = false,
+
+    -- PC controls
+    RightShiftToggle = false,
+    KeepMouseUnlocked = false,
+    HidePlayerList = false,
+    HideChat = false,
+    HideBackpack = false,
+    HideTopBar = false,
+
+    -- Audio
+    MuteAudio = false,
+
+    -- Hub and interface
+    CompactHub = false,
+    AutoCompactMobile = UserInputService.TouchEnabled,
+    LargerHub = false,
+    HideLogo = false,
+    ReduceAnimations = false,
+    ShowDragHandle = true,
+}
+
+-- Read and write engine properties safely. Some executors or game builds can
+-- block particular properties, so one unsupported setting must not stop the UI.
+local function safeReadProperty(instance, propertyName, fallback)
+    local ok, value = pcall(function()
+        return instance[propertyName]
+    end)
+
+    if ok then
+        return value
+    end
+
+    return fallback
+end
+
+local function safeWriteProperty(instance, propertyName, value)
+    local ok, err = pcall(function()
+        instance[propertyName] = value
+    end)
+
+    if not ok then
+        warn(
+            "[LuisGamerCoolHub] Could not change "
+                .. tostring(propertyName)
+                .. ": "
+                .. tostring(err)
+        )
+    end
+
+    return ok
+end
+
+local OriginalLighting = {
+    GlobalShadows = safeReadProperty(Lighting, "GlobalShadows", true),
+    Brightness = safeReadProperty(Lighting, "Brightness", 2),
+    ClockTime = safeReadProperty(Lighting, "ClockTime", 14),
+    Ambient = safeReadProperty(
+        Lighting,
+        "Ambient",
+        Color3.fromRGB(128, 128, 128)
+    ),
+    OutdoorAmbient = safeReadProperty(
+        Lighting,
+        "OutdoorAmbient",
+        Color3.fromRGB(128, 128, 128)
+    ),
+    FogStart = safeReadProperty(Lighting, "FogStart", 0),
+    FogEnd = safeReadProperty(Lighting, "FogEnd", 100000),
+    FogColor = safeReadProperty(
+        Lighting,
+        "FogColor",
+        Color3.fromRGB(192, 192, 192)
+    ),
+}
+
+local OriginalSoundVolume = safeReadProperty(SoundService, "Volume", 1)
+local OriginalMouseBehavior = safeReadProperty(
+    UserInputService,
+    "MouseBehavior",
+    Enum.MouseBehavior.Default
+)
+local OriginalMouseIconEnabled = safeReadProperty(
+    UserInputService,
+    "MouseIconEnabled",
+    true
+)
+
+local SavedEffectStates = setmetatable({}, { __mode = "k" })
+local SavedPostEffectStates = setmetatable({}, { __mode = "k" })
+local MouseUnlockConnection = nil
+local StatsOverlayConnection = nil
+local StatsOverlay = nil
+local StatsFrames = 0
+local StatsElapsed = 0
+local CurrentFPS = 0
+
+local HubSettingsScale = MainFrame:FindFirstChild("HubSettingsScale")
+if not HubSettingsScale then
+    HubSettingsScale = Instance.new("UIScale")
+    HubSettingsScale.Name = "HubSettingsScale"
+    HubSettingsScale.Scale = 1
+    HubSettingsScale.Parent = MainFrame
+end
+
+local function isVisualEffect(object)
+    return object:IsA("ParticleEmitter")
+        or object:IsA("Trail")
+        or object:IsA("Beam")
+        or object:IsA("Smoke")
+        or object:IsA("Fire")
+        or object:IsA("Sparkles")
+end
+
+local function isPostEffect(object)
+    return object:IsA("BloomEffect")
+        or object:IsA("BlurEffect")
+        or object:IsA("ColorCorrectionEffect")
+        or object:IsA("DepthOfFieldEffect")
+        or object:IsA("SunRaysEffect")
+end
+
+local function applyEffectSettings()
+    local shouldDisable = SettingsState.DisableParticles
+        or SettingsState.LowGraphics
+
+    for _, object in ipairs(game:GetDescendants()) do
+        if isVisualEffect(object) then
+            if SavedEffectStates[object] == nil then
+                SavedEffectStates[object] = safeReadProperty(
+                    object,
+                    "Enabled",
+                    true
+                )
+            end
+
+            if shouldDisable then
+                safeWriteProperty(object, "Enabled", false)
+            else
+                local saved = SavedEffectStates[object]
+                if saved ~= nil then
+                    safeWriteProperty(object, "Enabled", saved)
+                end
+            end
+        end
+    end
+end
+
+local function applyPostProcessingSettings()
+    local shouldDisable = SettingsState.DisablePostProcessing
+        or SettingsState.LowGraphics
+
+    for _, object in ipairs(Lighting:GetDescendants()) do
+        if isPostEffect(object) then
+            if SavedPostEffectStates[object] == nil then
+                SavedPostEffectStates[object] = safeReadProperty(
+                    object,
+                    "Enabled",
+                    true
+                )
+            end
+
+            if shouldDisable then
+                safeWriteProperty(object, "Enabled", false)
+            else
+                local saved = SavedPostEffectStates[object]
+                if saved ~= nil then
+                    safeWriteProperty(object, "Enabled", saved)
+                end
+            end
+        end
+    end
+end
+
+local function applyLightingSettings()
+    local shadowsEnabled = OriginalLighting.GlobalShadows
+        and not SettingsState.DisableShadows
+        and not SettingsState.LowGraphics
+
+    safeWriteProperty(Lighting, "GlobalShadows", shadowsEnabled)
+
+    if SettingsState.Fullbright then
+        safeWriteProperty(Lighting, "Brightness", 3)
+        safeWriteProperty(Lighting, "ClockTime", 14)
+        safeWriteProperty(
+            Lighting,
+            "Ambient",
+            Color3.fromRGB(190, 190, 190)
+        )
+        safeWriteProperty(
+            Lighting,
+            "OutdoorAmbient",
+            Color3.fromRGB(170, 170, 170)
+        )
+    else
+        safeWriteProperty(Lighting, "Brightness", OriginalLighting.Brightness)
+        safeWriteProperty(Lighting, "ClockTime", OriginalLighting.ClockTime)
+        safeWriteProperty(Lighting, "Ambient", OriginalLighting.Ambient)
+        safeWriteProperty(
+            Lighting,
+            "OutdoorAmbient",
+            OriginalLighting.OutdoorAmbient
+        )
+    end
+
+    if SettingsState.RemoveFog then
+        safeWriteProperty(Lighting, "FogStart", 0)
+        safeWriteProperty(Lighting, "FogEnd", 1000000)
+    else
+        safeWriteProperty(Lighting, "FogStart", OriginalLighting.FogStart)
+        safeWriteProperty(Lighting, "FogEnd", OriginalLighting.FogEnd)
+        safeWriteProperty(Lighting, "FogColor", OriginalLighting.FogColor)
+    end
+end
+
+local function setCoreGuiVisible(coreGuiType, visible)
+    local ok, err = pcall(function()
+        StarterGui:SetCoreGuiEnabled(coreGuiType, visible)
+    end)
+
+    if not ok then
+        warn(
+            "[LuisGamerCoolHub] CoreGui setting unavailable: "
+                .. tostring(err)
+        )
+    end
+end
+
+local function setTopBarVisible(visible)
+    local ok, err = pcall(function()
+        StarterGui:SetCore("TopbarEnabled", visible)
+    end)
+
+    if not ok then
+        warn(
+            "[LuisGamerCoolHub] Top bar setting unavailable: "
+                .. tostring(err)
+        )
+    end
+end
+
+local function applyPCControlSettings()
+    setCoreGuiVisible(
+        Enum.CoreGuiType.PlayerList,
+        not SettingsState.HidePlayerList
+    )
+    setCoreGuiVisible(
+        Enum.CoreGuiType.Chat,
+        not SettingsState.HideChat
+    )
+    setCoreGuiVisible(
+        Enum.CoreGuiType.Backpack,
+        not SettingsState.HideBackpack
+    )
+    setTopBarVisible(not SettingsState.HideTopBar)
+
+    if MouseUnlockConnection then
+        MouseUnlockConnection:Disconnect()
+        MouseUnlockConnection = nil
+    end
+
+    if SettingsState.KeepMouseUnlocked then
+        MouseUnlockConnection = RunService.RenderStepped:Connect(function()
+            safeWriteProperty(
+                UserInputService,
+                "MouseBehavior",
+                Enum.MouseBehavior.Default
+            )
+            safeWriteProperty(UserInputService, "MouseIconEnabled", true)
+        end)
+    else
+        safeWriteProperty(
+            UserInputService,
+            "MouseBehavior",
+            OriginalMouseBehavior
+        )
+        safeWriteProperty(
+            UserInputService,
+            "MouseIconEnabled",
+            OriginalMouseIconEnabled
+        )
+    end
+end
+
+local function getPingText()
+    local ok, result = pcall(function()
+        local network = StatsService.Network
+        local serverStats = network.ServerStatsItem
+        local pingItem = serverStats["Data Ping"]
+
+        if pingItem then
+            return pingItem:GetValueString()
+        end
+
+        return "--"
+    end)
+
+    if ok then
+        return tostring(result)
+    end
+
+    return "--"
+end
+
+local function getMemoryText()
+    local ok, value = pcall(function()
+        return StatsService:GetTotalMemoryUsageMb()
+    end)
+
+    if ok and type(value) == "number" then
+        return tostring(math.floor(value + 0.5)) .. " MB"
+    end
+
+    return "--"
+end
+
+local function getClockText()
+    local ok, result = pcall(function()
+        return os.date("%H:%M:%S")
+    end)
+
+    return ok and tostring(result) or "--:--:--"
+end
+
+local function anyStatsEnabled()
+    return SettingsState.ShowFPS
+        or SettingsState.ShowPing
+        or SettingsState.ShowMemory
+        or SettingsState.ShowClock
+        or SettingsState.ShowPlayerCount
+end
+
+local function createStatsOverlay()
+    if StatsOverlay and StatsOverlay.Parent then
+        return
+    end
+
+    StatsOverlay = Instance.new("TextLabel")
+    StatsOverlay.Name = "LuisPCStatsOverlay"
+    StatsOverlay.AnchorPoint = Vector2.new(1, 0)
+    StatsOverlay.Position = UDim2.new(1, -14, 0, 14)
+    StatsOverlay.Size = UDim2.new(0, 172, 0, 38)
+    StatsOverlay.AutomaticSize = Enum.AutomaticSize.Y
+    StatsOverlay.BackgroundColor3 = Color3.fromRGB(12, 45, 19)
+    StatsOverlay.BackgroundTransparency = 0.18
+    StatsOverlay.BorderSizePixel = 0
+    StatsOverlay.FontFace = Font.new(
+        "rbxasset://fonts/families/ComicNeueAngular.json",
+        Enum.FontWeight.Bold,
+        Enum.FontStyle.Normal
+    )
+    StatsOverlay.Text = ""
+    StatsOverlay.TextColor3 = Color3.fromRGB(255, 255, 255)
+    StatsOverlay.TextSize = 18
+    StatsOverlay.TextWrapped = true
+    StatsOverlay.TextXAlignment = Enum.TextXAlignment.Left
+    StatsOverlay.TextYAlignment = Enum.TextYAlignment.Top
+    StatsOverlay.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    StatsOverlay.TextStrokeTransparency = 0.35
+    StatsOverlay.ZIndex = 500
+    StatsOverlay.Parent = G2L["1"]
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingTop = UDim.new(0, 8)
+    padding.PaddingBottom = UDim.new(0, 8)
+    padding.PaddingLeft = UDim.new(0, 10)
+    padding.PaddingRight = UDim.new(0, 10)
+    padding.Parent = StatsOverlay
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = StatsOverlay
+
+    local stroke = Instance.new("UIStroke")
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Color = Color3.fromRGB(0, 0, 0)
+    stroke.Thickness = 2
+    stroke.Transparency = 0.25
+    stroke.Parent = StatsOverlay
+end
+
+local function refreshStatsOverlay()
+    if not anyStatsEnabled() then
+        if StatsOverlayConnection then
+            StatsOverlayConnection:Disconnect()
+            StatsOverlayConnection = nil
+        end
+
+        if StatsOverlay then
+            StatsOverlay:Destroy()
+            StatsOverlay = nil
+        end
+
+        StatsFrames = 0
+        StatsElapsed = 0
+        CurrentFPS = 0
+        return
+    end
+
+    createStatsOverlay()
+
+    if StatsOverlayConnection then
+        return
+    end
+
+    StatsOverlayConnection = RunService.RenderStepped:Connect(function(deltaTime)
+        StatsFrames += 1
+        StatsElapsed += deltaTime
+
+        if StatsElapsed < 0.5 then
+            return
+        end
+
+        CurrentFPS = math.floor((StatsFrames / StatsElapsed) + 0.5)
+        StatsFrames = 0
+        StatsElapsed = 0
+
+        local lines = {}
+
+        if SettingsState.ShowFPS then
+            table.insert(lines, "FPS: " .. tostring(CurrentFPS))
+        end
+
+        if SettingsState.ShowPing then
+            table.insert(lines, "Ping: " .. getPingText())
+        end
+
+        if SettingsState.ShowMemory then
+            table.insert(lines, "Memory: " .. getMemoryText())
+        end
+
+        if SettingsState.ShowClock then
+            table.insert(lines, "Time: " .. getClockText())
+        end
+
+        if SettingsState.ShowPlayerCount then
+            table.insert(
+                lines,
+                "Players: " .. tostring(#Players:GetPlayers())
+            )
+        end
+
+        if StatsOverlay and StatsOverlay.Parent then
+            StatsOverlay.Text = table.concat(lines, "\n")
+        end
+    end)
+end
+
+local function getEffectiveCompactMode()
+    return SettingsState.CompactHub
+        or (SettingsState.AutoCompactMobile and UserInputService.TouchEnabled)
+end
+
+local function applyHubInterfaceSettings(animate)
+    ReduceUIAnimations = SettingsState.ReduceAnimations
+
+    local scale = 1
+
+    if getEffectiveCompactMode() then
+        scale = UserInputService.TouchEnabled and 0.78 or 0.90
+    end
+
+    if SettingsState.LargerHub then
+        scale *= 1.08
+    end
+
+    local targetLogoVisible = not SettingsState.HideLogo
+
+    if getEffectiveCompactMode() and UserInputService.TouchEnabled then
+        targetLogoVisible = false
+    end
+
+    Logo.Visible = targetLogoVisible
+
+    if DragHandle then
+        DragHandle.Visible = SettingsState.ShowDragHandle
+    end
+
+    if animate == false or ReduceUIAnimations then
+        HubSettingsScale.Scale = scale
+    else
+        TweenService:Create(
+            HubSettingsScale,
+            TweenInfo.new(
+                0.24,
+                Enum.EasingStyle.Quart,
+                Enum.EasingDirection.Out
+            ),
+            { Scale = scale }
+        ):Play()
+    end
+end
+
+local function centerHub()
+    local camera = workspace.CurrentCamera
+
+    if not camera then
+        return
+    end
+
+    local viewport = camera.ViewportSize
+    local frameSize = MainFrame.AbsoluteSize
+    local target = UDim2.fromOffset(
+        math.floor((viewport.X - frameSize.X) / 2),
+        math.floor((viewport.Y - frameSize.Y) / 2)
+    )
+
+    originalPosition = target
+
+    if dragTargetPosition then
+        dragTargetPosition = target
+    end
+
+    TweenService:Create(
+        MainFrame,
+        TweenInfo.new(
+            ReduceUIAnimations and 0.08 or 0.28,
+            Enum.EasingStyle.Quart,
+            Enum.EasingDirection.Out
+        ),
+        { Position = target }
+    ):Play()
+end
+
+local function copyToClipboard(value, label)
+    if typeof(setclipboard) ~= "function" then
+        warn(
+            "[LuisGamerCoolHub] Clipboard is unavailable. "
+                .. tostring(label)
+                .. ": "
+                .. tostring(value)
+        )
+        return false
+    end
+
+    local ok, err = pcall(function()
+        setclipboard(tostring(value))
+    end)
+
+    if not ok then
+        warn(
+            "[LuisGamerCoolHub] Could not copy "
+                .. tostring(label)
+                .. ": "
+                .. tostring(err)
+        )
+    end
+
+    return ok
+end
+
+local function AddSettingsSection(parent, text)
+    local section = Instance.new("TextLabel")
+    section.Name = "SettingsSection"
+    section.Size = UDim2.new(1, -8, 0, 37)
+    section.BackgroundColor3 = Color3.fromRGB(13, 57, 24)
+    section.BackgroundTransparency = 0.30
+    section.BorderSizePixel = 0
+    section.FontFace = Font.new(
+        "rbxasset://fonts/families/ComicNeueAngular.json",
+        Enum.FontWeight.Bold,
+        Enum.FontStyle.Normal
+    )
+    section.Text = tostring(text)
+    section.TextColor3 = Color3.fromRGB(255, 255, 255)
+    section.TextSize = 21
+    section.TextXAlignment = Enum.TextXAlignment.Left
+    section.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    section.TextStrokeTransparency = 0.42
+    section.Parent = parent
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, 13)
+    padding.Parent = section
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 9)
+    corner.Parent = section
+
+    local stroke = Instance.new("UIStroke")
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Color = Color3.fromRGB(0, 0, 0)
+    stroke.Thickness = 1.5
+    stroke.Transparency = 0.42
+    stroke.Parent = section
+
+    return section
+end
+
+local function AddSettingsToggle(parent, text, default, callback)
+    local switchResult = Element.Switch(parent, text, default, callback)
+    return StyleSwitchElement(switchResult)
+end
+
+local function AddSettingsButton(parent, text, callback)
+    local button = Element.Button(parent, text, callback)
+
+    local instance = button
+    if type(button) == "table" then
+        instance = button.Instance or button.Button or button.Root
+    end
+
+    if typeof(instance) == "Instance" and instance:IsA("GuiObject") then
+        instance.Size = UDim2.new(1, -8, 0, 46)
+    end
+
+    return button
+end
+
+local function restoreDefaultSettings()
+    SettingsState.DisableShadows = false
+    SettingsState.DisableRendering = false
+    SettingsState.LowGraphics = false
+    SettingsState.DisableParticles = false
+    SettingsState.DisablePostProcessing = false
+
+    SettingsState.Fullbright = false
+    SettingsState.RemoveFog = false
+    SettingsState.ShowFPS = false
+    SettingsState.ShowPing = false
+    SettingsState.ShowMemory = false
+    SettingsState.ShowClock = false
+    SettingsState.ShowPlayerCount = false
+
+    SettingsState.RightShiftToggle = false
+    SettingsState.KeepMouseUnlocked = false
+    SettingsState.HidePlayerList = false
+    SettingsState.HideChat = false
+    SettingsState.HideBackpack = false
+    SettingsState.HideTopBar = false
+
+    SettingsState.MuteAudio = false
+
+    SettingsState.CompactHub = false
+    SettingsState.AutoCompactMobile = UserInputService.TouchEnabled
+    SettingsState.LargerHub = false
+    SettingsState.HideLogo = false
+    SettingsState.ReduceAnimations = false
+    SettingsState.ShowDragHandle = true
+
+    pcall(function()
+        RunService:Set3dRenderingEnabled(true)
+    end)
+
+    safeWriteProperty(SoundService, "Volume", OriginalSoundVolume)
+    applyLightingSettings()
+    applyEffectSettings()
+    applyPostProcessingSettings()
+    applyPCControlSettings()
+    refreshStatsOverlay()
+    applyHubInterfaceSettings(true)
+
+    originalPosition = HubDefaultPosition
+
+    if dragTargetPosition then
+        dragTargetPosition = HubDefaultPosition
+    end
+
+    TweenService:Create(
+        MainFrame,
+        TweenInfo.new(0.28, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+        { Position = HubDefaultPosition }
+    ):Play()
+end
+
 local function ShowSettings()
     Clear()
     ContentFrame.Visible = true
     TitleHolder.Text = "Settings"
 
-    AddToggle("Disable Shadow", false, function(disabled)
-        Lighting.GlobalShadows = not disabled
+    local list = Instance.new("ScrollingFrame")
+    list.Name = "SettingsList"
+    list.Size = UDim2.new(1, -6, 1, -2)
+    list.BackgroundTransparency = 1
+    list.BorderSizePixel = 0
+    list.Active = true
+    list.ScrollingDirection = Enum.ScrollingDirection.Y
+    list.CanvasSize = UDim2.new(0, 0, 0, 0)
+    list.ScrollBarThickness = 6
+    list.ScrollBarImageColor3 = Color3.fromRGB(0, 0, 0)
+    list.ScrollBarImageTransparency = 0.20
+    list.Parent = ContentHolder
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingTop = UDim.new(0, 3)
+    padding.PaddingBottom = UDim.new(0, 12)
+    padding.PaddingLeft = UDim.new(0, 3)
+    padding.PaddingRight = UDim.new(0, 10)
+    padding.Parent = list
+
+    local layout = Instance.new("UIListLayout")
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 9)
+    layout.Parent = list
+
+    local function updateCanvas()
+        list.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 18)
+    end
+
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCanvas)
+
+    -- ==================== PERFORMANCE ====================
+    AddSettingsSection(list, "Performance")
+
+    AddSettingsToggle(list, "Disable Shadows", SettingsState.DisableShadows, function(enabled)
+        SettingsState.DisableShadows = enabled
+        applyLightingSettings()
     end)
 
-    AddToggle("Disable Rendering", false, function(disabled)
-        RunService:Set3dRenderingEnabled(not disabled)
+    AddSettingsToggle(list, "Low Graphics Mode", SettingsState.LowGraphics, function(enabled)
+        SettingsState.LowGraphics = enabled
+        applyLightingSettings()
+        applyEffectSettings()
+        applyPostProcessingSettings()
     end)
+
+    AddSettingsToggle(list, "Disable Particles", SettingsState.DisableParticles, function(enabled)
+        SettingsState.DisableParticles = enabled
+        applyEffectSettings()
+    end)
+
+    AddSettingsToggle(list, "Disable Post Processing", SettingsState.DisablePostProcessing, function(enabled)
+        SettingsState.DisablePostProcessing = enabled
+        applyPostProcessingSettings()
+    end)
+
+    AddSettingsToggle(list, "Disable 3D Rendering", SettingsState.DisableRendering, function(enabled)
+        SettingsState.DisableRendering = enabled
+
+        local ok, err = pcall(function()
+            RunService:Set3dRenderingEnabled(not enabled)
+        end)
+
+        if not ok then
+            SettingsState.DisableRendering = false
+            warn(
+                "[LuisGamerCoolHub] 3D rendering control is unavailable: "
+                    .. tostring(err)
+            )
+        end
+    end)
+
+    -- ==================== VISUALS AND INFORMATION ====================
+    AddSettingsSection(list, "Visuals & Information")
+
+    AddSettingsToggle(list, "Fullbright", SettingsState.Fullbright, function(enabled)
+        SettingsState.Fullbright = enabled
+        applyLightingSettings()
+    end)
+
+    AddSettingsToggle(list, "Remove Fog", SettingsState.RemoveFog, function(enabled)
+        SettingsState.RemoveFog = enabled
+        applyLightingSettings()
+    end)
+
+    AddSettingsToggle(list, "Show FPS Counter", SettingsState.ShowFPS, function(enabled)
+        SettingsState.ShowFPS = enabled
+        refreshStatsOverlay()
+    end)
+
+    AddSettingsToggle(list, "Show Ping Counter", SettingsState.ShowPing, function(enabled)
+        SettingsState.ShowPing = enabled
+        refreshStatsOverlay()
+    end)
+
+    AddSettingsToggle(list, "Show Memory Usage", SettingsState.ShowMemory, function(enabled)
+        SettingsState.ShowMemory = enabled
+        refreshStatsOverlay()
+    end)
+
+    AddSettingsToggle(list, "Show Clock", SettingsState.ShowClock, function(enabled)
+        SettingsState.ShowClock = enabled
+        refreshStatsOverlay()
+    end)
+
+    AddSettingsToggle(list, "Show Player Count", SettingsState.ShowPlayerCount, function(enabled)
+        SettingsState.ShowPlayerCount = enabled
+        refreshStatsOverlay()
+    end)
+
+    -- ==================== PC CONTROLS ====================
+    AddSettingsSection(list, "PC Controls")
+
+    AddSettingsToggle(list, "Right Shift Opens Hub", SettingsState.RightShiftToggle, function(enabled)
+        SettingsState.RightShiftToggle = enabled
+    end)
+
+    AddSettingsToggle(list, "Keep Mouse Unlocked", SettingsState.KeepMouseUnlocked, function(enabled)
+        SettingsState.KeepMouseUnlocked = enabled
+        applyPCControlSettings()
+    end)
+
+    AddSettingsToggle(list, "Hide Player List", SettingsState.HidePlayerList, function(enabled)
+        SettingsState.HidePlayerList = enabled
+        applyPCControlSettings()
+    end)
+
+    AddSettingsToggle(list, "Hide Chat", SettingsState.HideChat, function(enabled)
+        SettingsState.HideChat = enabled
+        applyPCControlSettings()
+    end)
+
+    AddSettingsToggle(list, "Hide Backpack", SettingsState.HideBackpack, function(enabled)
+        SettingsState.HideBackpack = enabled
+        applyPCControlSettings()
+    end)
+
+    AddSettingsToggle(list, "Hide Roblox Top Bar", SettingsState.HideTopBar, function(enabled)
+        SettingsState.HideTopBar = enabled
+        applyPCControlSettings()
+    end)
+
+    -- ==================== AUDIO ====================
+    AddSettingsSection(list, "Audio")
+
+    AddSettingsToggle(list, "Mute Game Audio", SettingsState.MuteAudio, function(enabled)
+        SettingsState.MuteAudio = enabled
+        safeWriteProperty(
+            SoundService,
+            "Volume",
+            enabled and 0 or OriginalSoundVolume
+        )
+    end)
+
+    -- ==================== HUB AND INTERFACE ====================
+    AddSettingsSection(list, "Hub & Interface")
+
+    AddSettingsToggle(list, "Compact Hub", SettingsState.CompactHub, function(enabled)
+        SettingsState.CompactHub = enabled
+        applyHubInterfaceSettings(true)
+    end)
+
+    AddSettingsToggle(list, "Auto Compact on Mobile", SettingsState.AutoCompactMobile, function(enabled)
+        SettingsState.AutoCompactMobile = enabled
+        applyHubInterfaceSettings(true)
+    end)
+
+    AddSettingsToggle(list, "Larger Hub Scale", SettingsState.LargerHub, function(enabled)
+        SettingsState.LargerHub = enabled
+        applyHubInterfaceSettings(true)
+    end)
+
+    AddSettingsToggle(list, "Hide Large Logo", SettingsState.HideLogo, function(enabled)
+        SettingsState.HideLogo = enabled
+        applyHubInterfaceSettings(true)
+    end)
+
+    AddSettingsToggle(list, "Reduce UI Animations", SettingsState.ReduceAnimations, function(enabled)
+        SettingsState.ReduceAnimations = enabled
+        applyHubInterfaceSettings(false)
+    end)
+
+    AddSettingsToggle(list, "Show Bottom Drag Handle", SettingsState.ShowDragHandle, function(enabled)
+        SettingsState.ShowDragHandle = enabled
+        applyHubInterfaceSettings(true)
+    end)
+
+    AddSettingsButton(list, "Centre Hub", function()
+        centerHub()
+    end)
+
+    AddSettingsButton(list, "Reset Hub Position", function()
+        originalPosition = HubDefaultPosition
+
+        if dragTargetPosition then
+            dragTargetPosition = HubDefaultPosition
+        end
+
+        TweenService:Create(
+            MainFrame,
+            TweenInfo.new(
+                ReduceUIAnimations and 0.08 or 0.32,
+                Enum.EasingStyle.Quart,
+                Enum.EasingDirection.Out
+            ),
+            { Position = HubDefaultPosition }
+        ):Play()
+    end)
+
+    -- ==================== SERVER AND CLIPBOARD ====================
+    AddSettingsSection(list, "Server & Clipboard")
+
+    AddSettingsButton(list, "Rejoin Current Server", function()
+        local ok, err = pcall(function()
+            if game.JobId and game.JobId ~= "" then
+                TeleportService:TeleportToPlaceInstance(
+                    game.PlaceId,
+                    game.JobId,
+                    LocalPlayer
+                )
+            else
+                TeleportService:Teleport(game.PlaceId, LocalPlayer)
+            end
+        end)
+
+        if not ok then
+            warn("[LuisGamerCoolHub] Rejoin failed: " .. tostring(err))
+        end
+    end)
+
+    AddSettingsButton(list, "Join a New Server", function()
+        local ok, err = pcall(function()
+            TeleportService:Teleport(game.PlaceId, LocalPlayer)
+        end)
+
+        if not ok then
+            warn(
+                "[LuisGamerCoolHub] New server teleport failed: "
+                    .. tostring(err)
+            )
+        end
+    end)
+
+    AddSettingsButton(list, "Copy Place ID", function()
+        copyToClipboard(game.PlaceId, "Place ID")
+    end)
+
+    AddSettingsButton(list, "Copy Job ID", function()
+        copyToClipboard(game.JobId, "Job ID")
+    end)
+
+    AddSettingsButton(list, "Restore Default Settings", function()
+        restoreDefaultSettings()
+        task.defer(ShowSettings)
+    end)
+
+    updateCanvas()
 end
+
+-- Automatically use the compact scale on touch devices when the default
+-- Auto Compact on Mobile option is enabled. The sectioned layout stays intact.
+applyHubInterfaceSettings(false)
 
 local function ShowGame()
     if not CurrentGameEntry then
@@ -1642,89 +2806,348 @@ local guiVisible = false
 local animating = false
 
 --============================================================
--- CLEAN SMOOTH DRAGGING
--- Drag from the title/header area. The frame follows the pointer using
--- exponential smoothing, so it feels responsive without looking jittery.
+-- CLEAN, RELIABLE SMOOTH DRAGGING
+-- Dragging is intentionally available ONLY from the bottom handle.
+-- The title, sidebar and content area no longer move the hub.
 --============================================================
 local draggingGui = false
-local dragInput = nil
-local dragStartPointer = nil
+local dragMode = nil
+local dragTouchInput = nil
+local dragStartPointer = Vector2.new(0, 0)
 local dragStartPosition = MainFrame.Position
-local dragTargetPosition = MainFrame.Position
-local DRAG_RESPONSE = 22
+local dragStartAbsolute = Vector2.new(0, 0)
+dragTargetPosition = MainFrame.Position
+local DRAG_RESPONSE = 28
 
-TitleHolder.Active = true
-TitleHolder.Selectable = false
+-- Allow the bottom handle to render outside the main frame.
+MainFrame.ClipsDescendants = false
 
-local function IsDragInput(input)
-    return input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch
+-- Visible handle positioned underneath the entire hub.
+DragHandle = Instance.new("Frame")
+DragHandle.Name = "BottomDragHandle"
+DragHandle.AnchorPoint = Vector2.new(0.5, 0)
+DragHandle.Position = UDim2.new(0.5, 0, 1, 8)
+DragHandle.Size = UDim2.new(0, 150, 0, 24)
+DragHandle.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+DragHandle.BackgroundTransparency = 0.88
+DragHandle.BorderSizePixel = 0
+DragHandle.Active = true
+DragHandle.Selectable = false
+DragHandle.ZIndex = 80
+DragHandle.Parent = MainFrame
+
+local dragHandleCorner = Instance.new("UICorner")
+dragHandleCorner.CornerRadius = UDim.new(1, 0)
+dragHandleCorner.Parent = DragHandle
+
+local dragHandleStroke = Instance.new("UIStroke")
+dragHandleStroke.Name = "HandleBorder"
+dragHandleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+dragHandleStroke.Color = Color3.fromRGB(0, 0, 0)
+dragHandleStroke.Thickness = 1.5
+dragHandleStroke.Transparency = 0.62
+dragHandleStroke.Parent = DragHandle
+
+local dragHandleShadow = Instance.new("UIShadow")
+dragHandleShadow.Color = Color3.fromRGB(0, 0, 0)
+dragHandleShadow.Transparency = 0.74
+dragHandleShadow.BlurRadius = UDim.new(0, 7)
+dragHandleShadow.Offset = UDim2.new(0, 0, 0, 3)
+dragHandleShadow.Parent = DragHandle
+
+local DragHandleHint = Instance.new("Frame")
+DragHandleHint.Name = "DragHandleHint"
+DragHandleHint.AnchorPoint = Vector2.new(0.5, 0.5)
+DragHandleHint.Position = UDim2.new(0.5, 0, 0.5, 0)
+DragHandleHint.Size = UDim2.new(0, 76, 0, 4)
+DragHandleHint.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+DragHandleHint.BackgroundTransparency = 0.24
+DragHandleHint.BorderSizePixel = 0
+DragHandleHint.ZIndex = 81
+DragHandleHint.Parent = DragHandle
+
+local dragHintCorner = Instance.new("UICorner")
+dragHintCorner.CornerRadius = UDim.new(1, 0)
+dragHintCorner.Parent = DragHandleHint
+
+local dragHandleScale = Instance.new("UIScale")
+dragHandleScale.Scale = 1
+dragHandleScale.Parent = DragHandle
+
+local function getMousePointer()
+    return UserInputService:GetMouseLocation()
 end
 
-local function BeginSmoothDrag(input)
-    if animating or not guiVisible or not IsDragInput(input) then
+local function getTouchPointer(input)
+    return Vector2.new(input.Position.X, input.Position.Y)
+end
+
+local function clampDragAbsolute(desiredAbsolute)
+    local camera = workspace.CurrentCamera
+
+    if not camera then
+        return desiredAbsolute
+    end
+
+    local viewport = camera.ViewportSize
+    local frameSize = MainFrame.AbsoluteSize
+
+    -- Keep enough of the UI visible to grab it again, while still allowing it
+    -- to reach every side of the screen.
+    local minX = -frameSize.X + 125
+    local maxX = viewport.X - 125
+    local minY = 58
+    local maxY = math.max(minY, viewport.Y - 82)
+
+    return Vector2.new(
+        math.clamp(desiredAbsolute.X, minX, maxX),
+        math.clamp(desiredAbsolute.Y, minY, maxY)
+    )
+end
+
+local function setDragTarget(pointerPosition)
+    local pointerDelta = pointerPosition - dragStartPointer
+    local desiredAbsolute = clampDragAbsolute(dragStartAbsolute + pointerDelta)
+    local correctedDelta = desiredAbsolute - dragStartAbsolute
+
+    dragTargetPosition = UDim2.new(
+        dragStartPosition.X.Scale,
+        dragStartPosition.X.Offset + correctedDelta.X,
+        dragStartPosition.Y.Scale,
+        dragStartPosition.Y.Offset + correctedDelta.Y
+    )
+end
+
+local function beginSmoothDrag(input)
+    if animating or not guiVisible or draggingGui then
+        return
+    end
+
+    local isMouse = input.UserInputType == Enum.UserInputType.MouseButton1
+    local isTouch = input.UserInputType == Enum.UserInputType.Touch
+
+    if not isMouse and not isTouch then
         return
     end
 
     draggingGui = true
-    dragInput = input
-    dragStartPointer = input.Position
+    dragMode = isTouch and "Touch" or "Mouse"
+    dragTouchInput = isTouch and input or nil
+    dragStartPointer = isTouch and getTouchPointer(input) or getMousePointer()
     dragStartPosition = MainFrame.Position
+    dragStartAbsolute = MainFrame.AbsolutePosition
     dragTargetPosition = MainFrame.Position
 
-    local changedConnection
-    changedConnection = input.Changed:Connect(function()
-        if input.UserInputState == Enum.UserInputState.End then
-            draggingGui = false
-            dragInput = nil
-            dragStartPointer = nil
-            originalPosition = dragTargetPosition
+    TweenService:Create(
+        DragHandle,
+        TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            BackgroundTransparency = 0.72,
+        }
+    ):Play()
 
-            if changedConnection then
-                changedConnection:Disconnect()
-                changedConnection = nil
-            end
-        end
-    end)
+    TweenService:Create(
+        dragHandleScale,
+        TweenInfo.new(0.12, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        {
+            Scale = 0.96,
+        }
+    ):Play()
+
+    TweenService:Create(
+        DragHandleHint,
+        TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            BackgroundTransparency = 0.05,
+            Size = UDim2.new(0, 104, 0, 4),
+        }
+    ):Play()
+
+    TweenService:Create(
+        dragHandleStroke,
+        TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            Transparency = 0.30,
+            Color = Color3.fromRGB(24, 105, 35),
+        }
+    ):Play()
 end
 
-TitleHolder.InputBegan:Connect(BeginSmoothDrag)
+local function endSmoothDrag()
+    if not draggingGui then
+        return
+    end
+
+    draggingGui = false
+    dragMode = nil
+    dragTouchInput = nil
+    originalPosition = dragTargetPosition
+
+    TweenService:Create(
+        DragHandle,
+        TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            BackgroundTransparency = 0.88,
+        }
+    ):Play()
+
+    TweenService:Create(
+        dragHandleScale,
+        TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        {
+            Scale = 1,
+        }
+    ):Play()
+
+    TweenService:Create(
+        DragHandleHint,
+        TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            BackgroundTransparency = 0.24,
+            Size = UDim2.new(0, 76, 0, 4),
+        }
+    ):Play()
+
+    TweenService:Create(
+        dragHandleStroke,
+        TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            Transparency = 0.62,
+            Color = Color3.fromRGB(0, 0, 0),
+        }
+    ):Play()
+end
+
+-- Smooth hover feedback for the bottom handle.
+DragHandle.MouseEnter:Connect(function()
+    if draggingGui then
+        return
+    end
+
+    TweenService:Create(
+        DragHandle,
+        TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            BackgroundTransparency = 0.77,
+        }
+    ):Play()
+
+    TweenService:Create(
+        dragHandleScale,
+        TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        {
+            Scale = 1.06,
+        }
+    ):Play()
+
+    TweenService:Create(
+        DragHandleHint,
+        TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            BackgroundTransparency = 0.08,
+            Size = UDim2.new(0, 94, 0, 4),
+        }
+    ):Play()
+
+    TweenService:Create(
+        dragHandleStroke,
+        TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            Transparency = 0.38,
+            Color = Color3.fromRGB(24, 105, 35),
+        }
+    ):Play()
+end)
+
+DragHandle.MouseLeave:Connect(function()
+    if draggingGui then
+        return
+    end
+
+    TweenService:Create(
+        DragHandle,
+        TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            BackgroundTransparency = 0.88,
+        }
+    ):Play()
+
+    TweenService:Create(
+        dragHandleScale,
+        TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        {
+            Scale = 1,
+        }
+    ):Play()
+
+    TweenService:Create(
+        DragHandleHint,
+        TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            BackgroundTransparency = 0.24,
+            Size = UDim2.new(0, 76, 0, 4),
+        }
+    ):Play()
+
+    TweenService:Create(
+        dragHandleStroke,
+        TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {
+            Transparency = 0.62,
+            Color = Color3.fromRGB(0, 0, 0),
+        }
+    ):Play()
+end)
+
+DragHandle.InputBegan:Connect(beginSmoothDrag)
 
 UserInputService.InputChanged:Connect(function(input)
-    if not draggingGui or not dragStartPointer then
+    if not draggingGui then
         return
     end
 
-    local validMovement =
-        input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch
+    if dragMode == "Mouse"
+        and input.UserInputType == Enum.UserInputType.MouseMovement then
 
-    if not validMovement then
+        setDragTarget(getMousePointer())
+    elseif dragMode == "Touch"
+        and input == dragTouchInput then
+
+        setDragTarget(getTouchPointer(input))
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if not draggingGui then
         return
     end
 
-    local delta = input.Position - dragStartPointer
+    if dragMode == "Mouse"
+        and input.UserInputType == Enum.UserInputType.MouseButton1 then
 
-    dragTargetPosition = UDim2.new(
-        dragStartPosition.X.Scale,
-        dragStartPosition.X.Offset + delta.X,
-        dragStartPosition.Y.Scale,
-        dragStartPosition.Y.Offset + delta.Y
-    )
+        endSmoothDrag()
+    elseif dragMode == "Touch"
+        and input == dragTouchInput then
+
+        endSmoothDrag()
+    end
 end)
 
 RunService.RenderStepped:Connect(function(deltaTime)
-    if not MainFrame.Parent then
+    if not MainFrame.Parent or animating then
         return
     end
 
+    local current = MainFrame.Position
     local difference =
-        math.abs(MainFrame.Position.X.Offset - dragTargetPosition.X.Offset)
-        + math.abs(MainFrame.Position.Y.Offset - dragTargetPosition.Y.Offset)
+        math.abs(current.X.Scale - dragTargetPosition.X.Scale)
+        + math.abs(current.X.Offset - dragTargetPosition.X.Offset)
+        + math.abs(current.Y.Scale - dragTargetPosition.Y.Scale)
+        + math.abs(current.Y.Offset - dragTargetPosition.Y.Offset)
 
-    if draggingGui or difference > 0.05 then
+    if draggingGui or difference > 0.01 then
         local alpha = 1 - math.exp(-DRAG_RESPONSE * deltaTime)
-        MainFrame.Position = MainFrame.Position:Lerp(dragTargetPosition, alpha)
+        MainFrame.Position = current:Lerp(dragTargetPosition, alpha)
     end
 end)
 
@@ -1772,7 +3195,9 @@ local toggleConnection = UserInputService.InputBegan:Connect(function(input, gp)
         return
     end
 
-    if input.KeyCode == Enum.KeyCode.K then
+    if input.KeyCode == Enum.KeyCode.K
+        or (SettingsState.RightShiftToggle
+            and input.KeyCode == Enum.KeyCode.RightShift) then
         if guiVisible then
             CloseGui()
         else
@@ -1880,5 +3305,5 @@ G2L["1"].AncestryChanged:Connect(function(_, parent)
     end
 end)
 
-print("✅ LuisGamerCoolHub ui.lua loaded once! Press K to open, hold X to close")
+print("✅ LuisGamerCoolHub loaded! Sectioned Settings + mobile compact + PC tools")
 return G2L["1"];
