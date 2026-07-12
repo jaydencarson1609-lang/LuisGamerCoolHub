@@ -292,7 +292,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 2.5 - Exact Working Method")
+        tab.Text("Version: 2.5 -- WORKING YIPPE!")
         tab.Text("Thanks for using the hub!")
     end)
 end
