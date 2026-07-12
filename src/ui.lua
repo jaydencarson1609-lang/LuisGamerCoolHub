@@ -737,7 +737,8 @@ local function AddButton(text, callback)
     return Element.Button(ContentHolder, text, callback)
 end
 
--- Gives every switch a dark faded card, rounded border and shadow.
+-- Gives every switch a dark faded card, rounded border, shadow,
+-- smooth hover animation and a responsive press animation.
 -- This works with both the downloaded elements.lua switch and the fallback switch.
 local function StyleSwitchElement(switchResult)
     local row = switchResult
@@ -754,8 +755,32 @@ local function StyleSwitchElement(switchResult)
         return switchResult
     end
 
-    row.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-    row.BackgroundTransparency = 0.72
+    -- Do not connect the hover events twice if this function is called again.
+    if row:GetAttribute("LuisSwitchHoverStyled") == true then
+        return switchResult
+    end
+    row:SetAttribute("LuisSwitchHoverStyled", true)
+
+    local BASE_ROW_COLOR = Color3.fromRGB(18, 18, 18)
+    local HOVER_ROW_COLOR = Color3.fromRGB(29, 31, 29)
+    local BASE_BORDER_COLOR = Color3.fromRGB(8, 8, 8)
+    local HOVER_BORDER_COLOR = Color3.fromRGB(67, 126, 62)
+    local PRESS_BORDER_COLOR = Color3.fromRGB(92, 181, 84)
+
+    local BASE_ROW_TRANSPARENCY = 0.72
+    local HOVER_ROW_TRANSPARENCY = 0.56
+
+    local BASE_ROW_SCALE = 1
+    local HOVER_ROW_SCALE = 1.015
+    local PRESS_ROW_SCALE = 0.992
+
+    local BASE_CONTROL_SCALE = 1
+    local HOVER_CONTROL_SCALE = 1.055
+    local PRESS_CONTROL_SCALE = 0.93
+
+    row.Active = true
+    row.BackgroundColor3 = BASE_ROW_COLOR
+    row.BackgroundTransparency = BASE_ROW_TRANSPARENCY
     row.BorderSizePixel = 0
     row.ClipsDescendants = false
 
@@ -772,22 +797,30 @@ local function StyleSwitchElement(switchResult)
         rowStroke = Instance.new("UIStroke")
         rowStroke.Name = "SwitchRowBorder"
         rowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        rowStroke.Color = Color3.fromRGB(8, 8, 8)
-        rowStroke.Thickness = 2
-        rowStroke.Transparency = 0.18
         rowStroke.Parent = row
     end
+    rowStroke.Color = BASE_BORDER_COLOR
+    rowStroke.Thickness = 2
+    rowStroke.Transparency = 0.18
 
     local rowShadow = row:FindFirstChild("SwitchRowShadow")
     if not rowShadow then
         rowShadow = Instance.new("UIShadow")
         rowShadow.Name = "SwitchRowShadow"
-        rowShadow.Color = Color3.fromRGB(0, 0, 0)
-        rowShadow.Transparency = 0.5
-        rowShadow.BlurRadius = UDim.new(0, 8)
-        rowShadow.Offset = UDim2.new(0, 0, 0, 3)
         rowShadow.Parent = row
     end
+    rowShadow.Color = Color3.fromRGB(0, 0, 0)
+    rowShadow.Transparency = 0.5
+    rowShadow.BlurRadius = UDim.new(0, 8)
+    rowShadow.Offset = UDim2.new(0, 0, 0, 3)
+
+    local rowScale = row:FindFirstChild("SwitchRowScale")
+    if not rowScale then
+        rowScale = Instance.new("UIScale")
+        rowScale.Name = "SwitchRowScale"
+        rowScale.Parent = row
+    end
+    rowScale.Scale = BASE_ROW_SCALE
 
     -- Find the visible toggle control. The normal elements.lua uses "Track";
     -- the original placeholder/fallback uses "On/OffButton".
@@ -806,7 +839,12 @@ local function StyleSwitchElement(switchResult)
         end
     end
 
+    local controlStroke
+    local controlShadow
+    local controlScale
+
     if switchControl and switchControl:IsA("GuiObject") then
+        switchControl.Active = true
         switchControl.BorderSizePixel = 0
 
         local controlCorner = switchControl:FindFirstChild("SwitchControlCorner")
@@ -819,27 +857,263 @@ local function StyleSwitchElement(switchResult)
             controlCorner.Parent = switchControl
         end
 
-        local controlStroke = switchControl:FindFirstChild("SwitchControlBorder")
+        controlStroke = switchControl:FindFirstChild("SwitchControlBorder")
         if not controlStroke then
             controlStroke = Instance.new("UIStroke")
             controlStroke.Name = "SwitchControlBorder"
             controlStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            controlStroke.Color = Color3.fromRGB(0, 0, 0)
-            controlStroke.Thickness = 2
-            controlStroke.Transparency = 0.12
             controlStroke.Parent = switchControl
         end
+        controlStroke.Color = Color3.fromRGB(0, 0, 0)
+        controlStroke.Thickness = 2
+        controlStroke.Transparency = 0.12
 
-        local controlShadow = switchControl:FindFirstChild("SwitchControlShadow")
+        controlShadow = switchControl:FindFirstChild("SwitchControlShadow")
         if not controlShadow then
             controlShadow = Instance.new("UIShadow")
             controlShadow.Name = "SwitchControlShadow"
-            controlShadow.Color = Color3.fromRGB(0, 0, 0)
-            controlShadow.Transparency = 0.42
-            controlShadow.BlurRadius = UDim.new(0, 6)
-            controlShadow.Offset = UDim2.new(0, 0, 0, 2)
             controlShadow.Parent = switchControl
         end
+        controlShadow.Color = Color3.fromRGB(0, 0, 0)
+        controlShadow.Transparency = 0.42
+        controlShadow.BlurRadius = UDim.new(0, 6)
+        controlShadow.Offset = UDim2.new(0, 0, 0, 2)
+
+        controlScale = switchControl:FindFirstChild("SwitchControlScale")
+        if not controlScale then
+            controlScale = Instance.new("UIScale")
+            controlScale.Name = "SwitchControlScale"
+            controlScale.Parent = switchControl
+        end
+        controlScale.Scale = BASE_CONTROL_SCALE
+    end
+
+    local hoverInfo = TweenInfo.new(
+        0.18,
+        Enum.EasingStyle.Quint,
+        Enum.EasingDirection.Out
+    )
+
+    local leaveInfo = TweenInfo.new(
+        0.22,
+        Enum.EasingStyle.Quart,
+        Enum.EasingDirection.Out
+    )
+
+    local pressInfo = TweenInfo.new(
+        0.09,
+        Enum.EasingStyle.Quad,
+        Enum.EasingDirection.Out
+    )
+
+    local releaseInfo = TweenInfo.new(
+        0.16,
+        Enum.EasingStyle.Back,
+        Enum.EasingDirection.Out
+    )
+
+    local activeTweens = {}
+    local hovered = false
+    local pressing = false
+
+    local function playTween(key, object, info, properties)
+        if not object or not object.Parent then
+            return
+        end
+
+        local previous = activeTweens[key]
+        if previous then
+            pcall(function()
+                previous:Cancel()
+            end)
+        end
+
+        local tween = TweenService:Create(object, info, properties)
+        activeTweens[key] = tween
+        tween:Play()
+    end
+
+    local function showNormal(info)
+        info = info or leaveInfo
+
+        playTween("RowBackground", row, info, {
+            BackgroundColor3 = BASE_ROW_COLOR,
+            BackgroundTransparency = BASE_ROW_TRANSPARENCY,
+        })
+
+        playTween("RowScale", rowScale, info, {
+            Scale = BASE_ROW_SCALE,
+        })
+
+        playTween("RowStroke", rowStroke, info, {
+            Color = BASE_BORDER_COLOR,
+            Thickness = 2,
+            Transparency = 0.18,
+        })
+
+        playTween("RowShadow", rowShadow, info, {
+            Transparency = 0.5,
+            Offset = UDim2.new(0, 0, 0, 3),
+        })
+
+        if controlScale then
+            playTween("ControlScale", controlScale, info, {
+                Scale = BASE_CONTROL_SCALE,
+            })
+        end
+
+        if controlStroke then
+            playTween("ControlStroke", controlStroke, info, {
+                Color = Color3.fromRGB(0, 0, 0),
+                Thickness = 2,
+                Transparency = 0.12,
+            })
+        end
+
+        if controlShadow then
+            playTween("ControlShadow", controlShadow, info, {
+                Transparency = 0.42,
+                Offset = UDim2.new(0, 0, 0, 2),
+            })
+        end
+    end
+
+    local function showHover(info)
+        info = info or hoverInfo
+
+        playTween("RowBackground", row, info, {
+            BackgroundColor3 = HOVER_ROW_COLOR,
+            BackgroundTransparency = HOVER_ROW_TRANSPARENCY,
+        })
+
+        playTween("RowScale", rowScale, info, {
+            Scale = HOVER_ROW_SCALE,
+        })
+
+        playTween("RowStroke", rowStroke, info, {
+            Color = HOVER_BORDER_COLOR,
+            Thickness = 2.4,
+            Transparency = 0.02,
+        })
+
+        playTween("RowShadow", rowShadow, info, {
+            Transparency = 0.3,
+            Offset = UDim2.new(0, 0, 0, 5),
+        })
+
+        if controlScale then
+            playTween("ControlScale", controlScale, info, {
+                Scale = HOVER_CONTROL_SCALE,
+            })
+        end
+
+        if controlStroke then
+            playTween("ControlStroke", controlStroke, info, {
+                Color = Color3.fromRGB(69, 117, 65),
+                Thickness = 2.4,
+                Transparency = 0.03,
+            })
+        end
+
+        if controlShadow then
+            playTween("ControlShadow", controlShadow, info, {
+                Transparency = 0.25,
+                Offset = UDim2.new(0, 0, 0, 4),
+            })
+        end
+    end
+
+    local function showPressed()
+        playTween("RowScale", rowScale, pressInfo, {
+            Scale = PRESS_ROW_SCALE,
+        })
+
+        playTween("RowStroke", rowStroke, pressInfo, {
+            Color = PRESS_BORDER_COLOR,
+            Thickness = 2.7,
+            Transparency = 0,
+        })
+
+        playTween("RowShadow", rowShadow, pressInfo, {
+            Transparency = 0.48,
+            Offset = UDim2.new(0, 0, 0, 2),
+        })
+
+        if controlScale then
+            playTween("ControlScale", controlScale, pressInfo, {
+                Scale = PRESS_CONTROL_SCALE,
+            })
+        end
+
+        if controlStroke then
+            playTween("ControlStroke", controlStroke, pressInfo, {
+                Color = Color3.fromRGB(102, 205, 94),
+                Thickness = 2.7,
+                Transparency = 0,
+            })
+        end
+
+        if controlShadow then
+            playTween("ControlShadow", controlShadow, pressInfo, {
+                Transparency = 0.5,
+                Offset = UDim2.new(0, 0, 0, 1),
+            })
+        end
+    end
+
+    local function releasePressed()
+        pressing = false
+
+        if hovered then
+            showHover(releaseInfo)
+        else
+            showNormal(releaseInfo)
+        end
+    end
+
+    row.MouseEnter:Connect(function()
+        hovered = true
+
+        if not pressing then
+            showHover()
+        end
+    end)
+
+    row.MouseLeave:Connect(function()
+        hovered = false
+
+        if not pressing then
+            showNormal()
+        end
+    end)
+
+    -- The downloaded switch normally has a transparent ClickArea inside Track.
+    -- The fallback switch uses the visible TextButton itself.
+    local clickTarget = row:FindFirstChild("ClickArea", true)
+
+    if not clickTarget and switchControl and switchControl:IsA("GuiObject") then
+        clickTarget = switchControl
+    end
+
+    if clickTarget and clickTarget:IsA("GuiObject") then
+        clickTarget.Active = true
+
+        clickTarget.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+
+                pressing = true
+                showPressed()
+            end
+        end)
+
+        clickTarget.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+
+                releasePressed()
+            end
+        end)
     end
 
     return switchResult
