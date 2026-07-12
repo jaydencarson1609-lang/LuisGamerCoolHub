@@ -436,12 +436,10 @@ G2L["1f"]["ApplyStrokeMode"] = Enum.ApplyStrokeMode.Border;
 G2L["20"] = Instance.new("UIAspectRatioConstraint", G2L["2"]);
 G2L["20"]["AspectRatio"] = 1.66749;
 
--- UIDragDetector
-pcall(function()
-    G2L["21"] = Instance.new("UIDragDetector", G2L["2"]);
-    G2L["21"]["Name"] = [[Drag]];
-    G2L["21"]["DragStyle"] = Enum.UIDragDetectorDragStyle.TranslatePlane;
-end)
+-- Native UIDragDetector intentionally disabled.
+-- A custom RenderStepped drag controller is created later so dragging feels
+-- smooth and does not jump or fight with Roblox's default detector.
+G2L["21"] = nil
 
 -- ==================== WORKING LOGIC ====================
 local MainFrame = G2L["2"]
@@ -1124,9 +1122,8 @@ local function AddToggle(text, default, callback)
     return StyleSwitchElement(switchResult)
 end
 
--- Supported Games uses the imported GameElement design from asset 113037265185555.
--- The emoji from gameslist.json is never shown as text; it only selects the
--- colour of the status ImageLabel contained inside the imported template.
+-- Supported Games is a static, vertically scrolling information list.
+-- Rows are not buttons. The status asset is only used as a coloured indicator.
 local GAME_ELEMENTS_ASSET = "rbxassetid://113037265185555"
 local ImportedGameElementTemplate
 
@@ -1228,8 +1225,8 @@ local function CloneStatusImage(entry)
     status.Name = "status"
     status.BackgroundTransparency = 1
     status.AnchorPoint = Vector2.new(1, 0.5)
-    status.Position = UDim2.new(1, -14, 0.5, 0)
-    status.Size = UDim2.new(0, 29, 0, 29)
+    status.Position = UDim2.new(1, -8, 0.5, 0)
+    status.Size = UDim2.new(0, 23, 0, 23)
     status.ScaleType = Enum.ScaleType.Fit
     status.ImageColor3 = GetStatusColour(entry.status)
     status.ZIndex = 3
@@ -1238,59 +1235,62 @@ local function CloneStatusImage(entry)
 end
 
 local function CreateGameElement(entry, layoutOrder)
-    -- This is a Frame, not a TextButton. It looks like a clean information row.
+    -- Static information row: no TextButton, no hover state and no teleport click.
+    -- The ScrollingFrame handles all interaction.
     local row = Instance.new("Frame")
     row.Name = "GameElement"
     row.LayoutOrder = layoutOrder
-    row.Size = UDim2.new(1, -2, 0, 48)
-    row.BackgroundColor3 = GAME_ROW_COLOR
-    row.BackgroundTransparency = 0.28
+    row.Size = UDim2.new(1, -2, 0, 44)
+    row.BackgroundTransparency = 1
     row.BorderSizePixel = 0
     row.ClipsDescendants = true
-    row.Active = true
+    row.Active = false
     row.Selectable = false
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = row
 
     local header = Instance.new("TextLabel")
     header.Name = "header"
     header.BackgroundTransparency = 1
-    header.Position = UDim2.new(0, 16, 0, 0)
-    header.Size = UDim2.new(1, -66, 1, 0)
+    header.Position = UDim2.new(0, 8, 0, 0)
+    header.Size = UDim2.new(1, -48, 1, 0)
     header.FontFace = Font.new(
-        "rbxasset://fonts/families/GothamSSm.json",
-        Enum.FontWeight.Medium,
+        "rbxasset://fonts/families/ComicNeueAngular.json",
+        Enum.FontWeight.Regular,
         Enum.FontStyle.Normal
     )
     header.Text = tostring(entry.game or "Unknown Game")
-    header.TextColor3 = GAME_ROW_TEXT_COLOR
-    header.TextSize = 17
+    header.TextColor3 = Color3.fromRGB(0, 0, 0)
+    header.TextSize = 20
     header.TextScaled = false
-    header.TextWrapped = true
+    header.TextWrapped = false
+    header.TextTruncate = Enum.TextTruncate.AtEnd
     header.TextXAlignment = Enum.TextXAlignment.Left
     header.TextYAlignment = Enum.TextYAlignment.Center
     header.TextStrokeTransparency = 1
     header.ZIndex = 2
     header.Parent = row
 
+    local headerStroke = Instance.new("UIStroke")
+    headerStroke.Name = "TextOutline"
+    headerStroke.Thickness = 1.45
+    headerStroke.Color = Color3.fromRGB(255, 255, 255)
+    headerStroke.Transparency = 0.05
+    headerStroke.Parent = header
+
     local status = CloneStatusImage(entry)
     status.Parent = row
 
-    -- A small divider gives structure without making the row look like a button.
     local divider = Instance.new("Frame")
     divider.Name = "Divider"
     divider.AnchorPoint = Vector2.new(0.5, 1)
     divider.Position = UDim2.new(0.5, 0, 1, 0)
-    divider.Size = UDim2.new(1, -28, 0, 1)
-    divider.BackgroundColor3 = GAME_ROW_DIVIDER_COLOR
-    divider.BackgroundTransparency = 0.72
+    divider.Size = UDim2.new(1, -16, 0, 1)
+    divider.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    divider.BackgroundTransparency = 0.58
     divider.BorderSizePixel = 0
-    divider.ZIndex = 2
+    divider.ZIndex = 1
     divider.Parent = row
 
-    return row, row, header, status
+    return row
 end
 
 local function AddSupportedGamesList()
@@ -1312,15 +1312,15 @@ local function AddSupportedGamesList()
     list.Parent = ContentHolder
 
     local padding = Instance.new("UIPadding")
-    padding.PaddingTop = UDim.new(0, 4)
+    padding.PaddingTop = UDim.new(0, 2)
     padding.PaddingBottom = UDim.new(0, 8)
     padding.PaddingLeft = UDim.new(0, 4)
-    padding.PaddingRight = UDim.new(0, 12)
+    padding.PaddingRight = UDim.new(0, 10)
     padding.Parent = list
 
     local layout = Instance.new("UIListLayout")
     layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Padding = UDim.new(0, 8)
+    layout.Padding = UDim.new(0, 2)
     layout.Parent = list
 
     local function updateCanvas()
@@ -1348,168 +1348,8 @@ local function AddSupportedGamesList()
     end
 
     for index, entry in ipairs(VerifiedGames) do
-        local row, clickTarget, header = CreateGameElement(entry, index)
+        local row = CreateGameElement(entry, index)
         row.Parent = list
-
-        -- No emoji text is displayed. Only the game name is shown.
-        if header and (header:IsA("TextLabel") or header:IsA("TextButton")) then
-            header.Text = tostring(entry.game or "Unknown Game")
-        end
-
-        if clickTarget and clickTarget:IsA("GuiObject") then
-            local busy = false
-            local pressStart
-
-            clickTarget.MouseEnter:Connect(function()
-                if busy or not clickTarget.Parent then
-                    return
-                end
-
-                TweenService:Create(
-                    clickTarget,
-                    TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                    {
-                        BackgroundColor3 = GAME_ROW_HOVER_COLOR,
-                        BackgroundTransparency = 0.18
-                    }
-                ):Play()
-            end)
-
-            clickTarget.MouseLeave:Connect(function()
-                if busy or not clickTarget.Parent then
-                    return
-                end
-
-                TweenService:Create(
-                    clickTarget,
-                    TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                    {
-                        BackgroundColor3 = GAME_ROW_COLOR,
-                        BackgroundTransparency = 0.28
-                    }
-                ):Play()
-            end)
-
-            local function activateGame()
-                if busy then
-                    return
-                end
-
-                local placeId = tonumber(entry.id)
-
-                if not placeId then
-                    warn("[LuisGamerCoolHub] Invalid PlaceId for " .. tostring(entry.game))
-                    return
-                end
-
-                if placeId == game.PlaceId then
-                    local oldText = header.Text
-                    header.Text = "Already in " .. tostring(entry.game)
-
-                    task.delay(1.4, function()
-                        if header and header.Parent then
-                            header.Text = oldText
-                        end
-                    end)
-
-                    return
-                end
-
-                busy = true
-                clickTarget.Active = false
-                header.Text = "Loading " .. tostring(entry.game) .. "..."
-
-                TweenService:Create(
-                    clickTarget,
-                    TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                    {
-                        BackgroundColor3 = GAME_ROW_PRESSED_COLOR,
-                        BackgroundTransparency = 0.1
-                    }
-                ):Play()
-
-                local ok, err = pcall(function()
-                    TeleportService:Teleport(placeId, LocalPlayer)
-                end)
-
-                if not ok then
-                    warn("[LuisGamerCoolHub] Teleport failed: " .. tostring(err))
-                    busy = false
-                    clickTarget.Active = true
-                    header.Text = tostring(entry.game or "Unknown Game")
-
-                    TweenService:Create(
-                        clickTarget,
-                        TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                        {
-                            BackgroundColor3 = GAME_ROW_COLOR,
-                            BackgroundTransparency = 0.28
-                        }
-                    ):Play()
-                else
-                    task.delay(8, function()
-                        if clickTarget and clickTarget.Parent then
-                            busy = false
-                            clickTarget.Active = true
-                            clickTarget.BackgroundColor3 = GAME_ROW_COLOR
-                            clickTarget.BackgroundTransparency = 0.28
-                        end
-
-                        if header and header.Parent then
-                            header.Text = tostring(entry.game or "Unknown Game")
-                        end
-                    end)
-                end
-            end
-
-            clickTarget.InputBegan:Connect(function(input)
-                if busy then
-                    return
-                end
-
-                if input.UserInputType == Enum.UserInputType.MouseButton1
-                    or input.UserInputType == Enum.UserInputType.Touch then
-
-                    pressStart = input.Position
-
-                    TweenService:Create(
-                        clickTarget,
-                        TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                        {
-                            BackgroundColor3 = GAME_ROW_PRESSED_COLOR,
-                            BackgroundTransparency = 0.12
-                        }
-                    ):Play()
-                end
-            end)
-
-            clickTarget.InputEnded:Connect(function(input)
-                if busy then
-                    return
-                end
-
-                if input.UserInputType == Enum.UserInputType.MouseButton1
-                    or input.UserInputType == Enum.UserInputType.Touch then
-
-                    local moved = pressStart and (input.Position - pressStart).Magnitude or 0
-                    pressStart = nil
-
-                    TweenService:Create(
-                        clickTarget,
-                        TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                        {
-                            BackgroundColor3 = GAME_ROW_HOVER_COLOR,
-                            BackgroundTransparency = 0.18
-                        }
-                    ):Play()
-
-                    -- Avoid teleporting when the user was only dragging the list.
-                    if moved <= 12 then
-                        activateGame()
-                    end
-                end
-            end)
-        end
     end
 
     updateCanvas()
@@ -1801,11 +1641,99 @@ settingsTab.MouseButton1Click:Connect(ShowSettings)
 local guiVisible = false
 local animating = false
 
+--============================================================
+-- CLEAN SMOOTH DRAGGING
+-- Drag from the title/header area. The frame follows the pointer using
+-- exponential smoothing, so it feels responsive without looking jittery.
+--============================================================
+local draggingGui = false
+local dragInput = nil
+local dragStartPointer = nil
+local dragStartPosition = MainFrame.Position
+local dragTargetPosition = MainFrame.Position
+local DRAG_RESPONSE = 22
+
+TitleHolder.Active = true
+TitleHolder.Selectable = false
+
+local function IsDragInput(input)
+    return input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch
+end
+
+local function BeginSmoothDrag(input)
+    if animating or not guiVisible or not IsDragInput(input) then
+        return
+    end
+
+    draggingGui = true
+    dragInput = input
+    dragStartPointer = input.Position
+    dragStartPosition = MainFrame.Position
+    dragTargetPosition = MainFrame.Position
+
+    local changedConnection
+    changedConnection = input.Changed:Connect(function()
+        if input.UserInputState == Enum.UserInputState.End then
+            draggingGui = false
+            dragInput = nil
+            dragStartPointer = nil
+            originalPosition = dragTargetPosition
+
+            if changedConnection then
+                changedConnection:Disconnect()
+                changedConnection = nil
+            end
+        end
+    end)
+end
+
+TitleHolder.InputBegan:Connect(BeginSmoothDrag)
+
+UserInputService.InputChanged:Connect(function(input)
+    if not draggingGui or not dragStartPointer then
+        return
+    end
+
+    local validMovement =
+        input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch
+
+    if not validMovement then
+        return
+    end
+
+    local delta = input.Position - dragStartPointer
+
+    dragTargetPosition = UDim2.new(
+        dragStartPosition.X.Scale,
+        dragStartPosition.X.Offset + delta.X,
+        dragStartPosition.Y.Scale,
+        dragStartPosition.Y.Offset + delta.Y
+    )
+end)
+
+RunService.RenderStepped:Connect(function(deltaTime)
+    if not MainFrame.Parent then
+        return
+    end
+
+    local difference =
+        math.abs(MainFrame.Position.X.Offset - dragTargetPosition.X.Offset)
+        + math.abs(MainFrame.Position.Y.Offset - dragTargetPosition.Y.Offset)
+
+    if draggingGui or difference > 0.05 then
+        local alpha = 1 - math.exp(-DRAG_RESPONSE * deltaTime)
+        MainFrame.Position = MainFrame.Position:Lerp(dragTargetPosition, alpha)
+    end
+end)
+
 local function OpenGui()
     if animating or guiVisible then return end
     animating = true
     guiVisible = true
 
+    dragTargetPosition = originalPosition
     MainFrame.Position = originalPosition + UDim2.new(0, 0, 0, SLIDE_OFFSET)
     MainFrame.Visible = true
     Fade(1, 0)
@@ -1829,6 +1757,7 @@ local function CloseGui()
 
     MainFrame.Visible = false
     MainFrame.Position = originalPosition
+    dragTargetPosition = originalPosition
     guiVisible = false
     animating = false
 end
