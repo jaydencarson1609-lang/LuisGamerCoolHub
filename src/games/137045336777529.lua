@@ -93,28 +93,31 @@ return function(_, api)
         farmSession += 1
     end
 
-    -- Auto Collect Money
+    -- ================= AUTO COLLECT MONEY =================
     local function startCollectingMoney()
         collectingMoney = true
         task.spawn(function()
             while collectingMoney do
                 pcall(function()
-                    -- Try to find player's plot (adjust if needed)
-                    for _, plot in ipairs(workspace:GetChildren()) do
-                        if plot.Name:match("Plot") or plot.Name:match("plot") then
-                            for _, floor in ipairs(plot:GetChildren()) do
-                                if floor.Name:match("Floor") or floor.Name:match("floor") then
-                                    local slots = floor:FindFirstChild("Slots") or floor:FindFirstChild("slots")
-                                    if slots then
-                                        for _, slot in ipairs(slots:GetChildren()) do
-                                            local collectTouch = slot:FindFirstChild("CollectTouch")
-                                                or slot:FindFirstChild("Button")
-                                                or slot:FindFirstChildWhichIsA("TouchTransmitter", true)
-
-                                            if collectTouch then
-                                                firetouchinterest(LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head"), collectTouch, true)
-                                                task.wait()
-                                                firetouchinterest(LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head"), collectTouch, false)
+                    local plotsFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Plots")
+                    if plotsFolder then
+                        for _, plot in ipairs(plotsFolder:GetChildren()) do
+                            if plot.Name:match("Plot") then
+                                local plotFolder = plot:FindFirstChild("Plot")
+                                if plotFolder then
+                                    local items = plotFolder:FindFirstChild("Items")
+                                    if items then
+                                        for _, item in ipairs(items:GetChildren()) do
+                                            if item.Name == "Item" then
+                                                local button = item:FindFirstChild("Button")
+                                                if button then
+                                                    local touch = button:FindFirstChild("TouchInterest")
+                                                    if touch and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
+                                                        firetouchinterest(LocalPlayer.Character.Head, touch, true)
+                                                        task.wait()
+                                                        firetouchinterest(LocalPlayer.Character.Head, touch, false)
+                                                    end
+                                                end
                                             end
                                         end
                                     end
@@ -123,7 +126,7 @@ return function(_, api)
                         end
                     end
                 end)
-                task.wait(0.2)
+                task.wait(0.15)
             end
         end)
     end
@@ -176,7 +179,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.2 - Auto Collect Money Added")
+        tab.Text("Version: 1.3 - Auto Collect Money Fixed")
         tab.Text("Thanks for using the hub!")
     end)
 end
