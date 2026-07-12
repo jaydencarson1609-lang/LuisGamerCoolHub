@@ -43,17 +43,21 @@ return function(_, api)
     end
 
     local function startFarming()
-        local root = getRootPart()
-        if not root then return end
-
         farming = true
         farmSession += 1
         local session = farmSession
 
         task.spawn(function()
             while farming and farmSession == session do
+                local root = getRootPart()
+                if not root then
+                    task.wait(0.5)
+                    continue
+                end
+
+                -- Teleport to farm area
                 teleport(root, FARM_CFRAME)
-                task.wait(0.8)
+                task.wait(0.5)
 
                 local platform9 = workspace:FindFirstChild("Map")
                     and workspace.Map:FindFirstChild("Outer")
@@ -67,28 +71,24 @@ return function(_, api)
                         if isValidBrainrot(brainrot) then
                             local pos = brainrot:GetPivot().Position
                             teleport(root, CFrame.new(pos + Vector3.new(0, 3, 0)))
-                            task.wait(0.2)
+                            task.wait(0.1)
 
                             local prompt = brainrot.Mesh:FindFirstChildOfClass("ProximityPrompt")
                             if prompt then
-                                for i = 1, 8 do
+                                for i = 1, 10 do
                                     activatePrompt(prompt)
-                                    task.wait(0.03)
+                                    task.wait(0.02)
                                 end
                             end
 
-                            task.wait(0.25)
+                            task.wait(0.15)
                             teleport(root, LOBBY_CFRAME)
-                            task.wait(0.7)
+                            task.wait(0.5)
                         end
                     end
                 end
 
-                task.wait(0.4)
-            end
-
-            if root then
-                teleport(root, LOBBY_CFRAME)
+                task.wait(0.25)
             end
         end)
     end
@@ -96,11 +96,15 @@ return function(_, api)
     local function stopFarming()
         farming = false
         farmSession += 1
-        local root = getRootPart()
-        if root then
-            teleport(root, LOBBY_CFRAME)
-        end
     end
+
+    -- Auto resume after death
+    LocalPlayer.CharacterAdded:Connect(function()
+        if farming then
+            task.wait(1.5)
+            startFarming()
+        end
+    end)
 
     -- ================= MAIN TAB =================
     api.Tab("Main", function(tab)
@@ -130,7 +134,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.0 - Run on Ice For Brainrots")
+        tab.Text("Version: 1.1 - Faster + Death Resume")
         tab.Text("Thanks for using the hub!")
     end)
 end
