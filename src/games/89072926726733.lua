@@ -8,6 +8,7 @@ return function(_, api)
     local LocalPlayer = Players.LocalPlayer
 
     local LOAD_CFRAME = CFrame.new(360, 2, 2076)
+    local SECRET_LOAD_CFRAME = CFrame.new(383, 2, 2093)   -- near Secret so it streams
     local LOBBY_CFRAME = CFrame.new(349, 2, -19)
 
     local farming = false
@@ -65,19 +66,29 @@ return function(_, api)
         local spawners = workspace:FindFirstChild("ItemSpawners")
         if not spawners then return items end
 
-        -- Secret (now checks ALL children, not just [6])
+        -- === SECRET (force load first, then look for ItemSpawn → SpawnedItem) ===
         local secret = spawners:FindFirstChild("Secret")
         if secret then
-            for _, child in ipairs(secret:GetChildren()) do
-                for _, item in ipairs(child:GetDescendants()) do
-                    if item:IsA("Model") and item.Name == "SpawnedItem" and isBestBrainrot(item) then
-                        table.insert(items, item)
+            -- Teleport near Secret so it loads
+            local root = getRootPart()
+            if root then
+                teleport(root, SECRET_LOAD_CFRAME)
+                task.wait(1.2)
+            end
+
+            -- Look for "ItemSpawn" models inside Secret
+            for _, child in ipairs(secret:GetDescendants()) do
+                if child:IsA("Model") and child.Name == "ItemSpawn" then
+                    for _, item in ipairs(child:GetDescendants()) do
+                        if item:IsA("Model") and item.Name == "SpawnedItem" and isBestBrainrot(item) then
+                            table.insert(items, item)
+                        end
                     end
                 end
             end
         end
 
-        -- Celestial (already working)
+        -- === CELESTIAL (already working) ===
         local celestial = spawners:FindFirstChild("Celestial")
         if celestial then
             for _, item in ipairs(celestial:GetDescendants()) do
@@ -100,8 +111,9 @@ return function(_, api)
         local session = farmSession
 
         task.spawn(function()
+            -- Initial load area
             teleport(root, LOAD_CFRAME)
-            task.wait(1.3)
+            task.wait(1.0)
 
             while farming and farmSession == session do
                 local items = getTargetSpawnedItems()
@@ -173,7 +185,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.4 - Secret Fixed")
+        tab.Text("Version: 1.5 - Secret + ItemSpawn Fixed")
         tab.Text("Thanks for using the hub!")
     end)
 end
