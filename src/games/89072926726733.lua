@@ -37,22 +37,6 @@ return function(_, api)
         end
     end
 
-    -- Get your own plot
-    local function getMyPlot()
-        for _, plot in ipairs(workspace:GetChildren()) do
-            if plot.Name:match("^Plot_") then
-                for _, d in ipairs(plot:GetDescendants()) do
-                    if (d:IsA("TextLabel") or d:IsA("BillboardGui")) and d.Text then
-                        if d.Text:lower() == LocalPlayer.Name:lower() then
-                            return plot
-                        end
-                    end
-                end
-            end
-        end
-        return nil
-    end
-
     local function activatePrompt(prompt)
         if not prompt or not prompt:IsA("ProximityPrompt") then return end
 
@@ -176,7 +160,7 @@ return function(_, api)
 
     -- ================= MAIN TAB =================
     api.Tab("Main", function(tab)
-        -- Auto Farm Best Brainrots (old working method you said works)
+        -- Auto Farm Best Brainrots (old working method)
         tab.Toggle("Auto Farm Best Brainrots", false, function(state)
             if state then
                 if not farming then startFarming() end
@@ -185,50 +169,45 @@ return function(_, api)
             end
         end)
 
-        -- Auto Collect Money (firetouchinterest)
+        -- Auto Collect Money (exact from your working script)
         tab.Toggle("Auto Collect Money", false, function(state)
             collectingMoney = state
-
             if state then
                 task.spawn(function()
                     while collectingMoney do
-                        local myPlot = getMyPlot()
+                        local plotName = "Plot_" .. LocalPlayer.Name
+                        local myPlot = workspace:FindFirstChild(plotName)
                         if myPlot then
-                            for _, floor in ipairs(myPlot:GetChildren()) do
-                                if floor.Name:match("^Floor") then
+                            for i = 1, 3 do
+                                local floor = myPlot:FindFirstChild("Floor" .. i)
+                                if floor then
                                     local slots = floor:FindFirstChild("Slots")
                                     if slots then
                                         for _, slot in ipairs(slots:GetChildren()) do
-                                            if slot.Name:match("^Slot") then
-                                                local collectTouch = slot:FindFirstChild("CollectTouch")
-                                                if collectTouch and collectTouch:IsA("BasePart") then
-                                                    local char = LocalPlayer.Character
-                                                    if char then
-                                                        firetouchinterest(char, collectTouch, 0)
-                                                        task.wait(0.08)
-                                                        firetouchinterest(char, collectTouch, 1)
-                                                    end
-                                                end
+                                            local collectTouch = slot:FindFirstChild("CollectTouch")
+                                            if collectTouch then
+                                                firetouchinterest(LocalPlayer.Character.Head, collectTouch, true)
+                                                task.wait()
+                                                firetouchinterest(LocalPlayer.Character.Head, collectTouch, false)
                                             end
                                         end
                                     end
                                 end
                             end
                         end
-                        task.wait(1.2)
+                        task.wait(0.15)
                     end
                 end)
             end
         end)
 
-        -- Auto Upgrade (firesignal MouseButton1Click)
+        -- Auto Upgrade (exact from your working script)
         tab.Toggle("Auto Upgrade", false, function(state)
             upgrading = state
-
             if state then
                 task.spawn(function()
                     while upgrading do
-                        local myPlot = getMyPlot()
+                        local myPlot = workspace:FindFirstChild("Plot_" .. LocalPlayer.Name)
                         if myPlot then
                             for _, floor in ipairs(myPlot:GetChildren()) do
                                 if floor.Name:match("^Floor") then
@@ -258,7 +237,7 @@ return function(_, api)
             end
         end)
 
-        -- Remove Cars (as toggle)
+        -- Remove Cars (Toggle)
         tab.Toggle("Remove Cars", false, function(state)
             if state then
                 if workspace:FindFirstChild("CarSpawn") then
@@ -285,7 +264,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 3.2 - Old Working Auto Farm + Remove Cars Toggle")
+        tab.Text("Version: 3.3 - Add Clean Stuff I Guess")
         tab.Text("Thanks for using the hub!")
     end)
 end
