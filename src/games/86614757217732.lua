@@ -1,5 +1,5 @@
 --[[
-src/games/86614757217732.lua — +1 Health for Brainrots
+src/games/86614757217732.lua — +1 Health for Brainrots (TEST VERSION)
 LuisGamerCoolHub
 ]]
 
@@ -12,12 +12,10 @@ return function(_, api)
     api.Tab("Main", function(tab)
         tab.Toggle("Farm Brainrots", false, function(state)
             farming = state
-
             if state then
                 task.spawn(function()
                     while farming do
                         pcall(function()
-                            -- Find the brainrot with highest CashPerSec
                             local topRot = nil
                             local bestAmt = 0
 
@@ -29,11 +27,9 @@ return function(_, api)
                             end
 
                             if topRot and topRot.PrimaryPart then
-                                -- Teleport to best brainrot
                                 LocalPlayer.Character:MoveTo(topRot.PrimaryPart.Position)
                                 task.wait(0.3)
 
-                                -- Pickup the brainrot
                                 local prompt = topRot:FindFirstChild("PickupHitbox") and
                                                topRot.PickupHitbox:FindFirstChildOfClass("ProximityPrompt")
 
@@ -46,7 +42,6 @@ return function(_, api)
 
                                 task.wait(0.3)
 
-                                -- Collect / Sell
                                 local collectionPart = workspace.Map:FindFirstChild("BrainrotCollectionPart")
                                 if collectionPart then
                                     firetouchinterest(LocalPlayer.Character.Head, collectionPart, true)
@@ -55,11 +50,25 @@ return function(_, api)
                                 end
                             end
                         end)
-
                         task.wait(0.6)
                     end
                 end)
             end
+        end)
+    end)
+
+    -- ================= TEST TAB =================
+    api.Tab("Test", function(tab)
+        tab.Button("Press", function()
+            print("✅ Test button pressed! UI is working.")
+        end)
+    end)
+
+    -- ================= DEBUG TAB =================
+    api.Tab("Debug", function(tab)
+        tab.Text("This is a test tab")
+        tab.Button("Print Hello", function()
+            print("Hello from Debug tab!")
         end)
     end)
 
@@ -68,11 +77,9 @@ return function(_, api)
         tab.Button("Infinite Yield", function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
         end)
-
         tab.Button("Dex Explorer", function()
             loadstring(game:HttpGet("https://github.com/BOXLEGENDARY/Dex/releases/latest/download/out.lua"))()
         end)
-
         tab.Button("Cobalt", function()
             loadstring(game:HttpGet("https://github.com/notpoiu/cobalt/releases/latest/download/Cobalt.luau"))()
         end)
@@ -82,7 +89,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.1 - +1 Health for Brainrots")
+        tab.Text("Version: 1.1 - Test Tabs")
         tab.Text("Thanks for using the hub!")
     end)
 end
