@@ -3,13 +3,22 @@ src/games/89072926726733.lua — Cross the Road for Brainrot
 LuisGamerCoolHub
 ]]
 
-return function(_, api)
-    -- ================= NOTIFICATION ON LOAD =================
-    pcall(function()
-        local Event = game:GetService("ReplicatedStorage").Events.ShowNotification
-        firesignal(Event.OnClientEvent, "LuisGamerCoolHub loaded Successfully", "Success")
-    end)
+-- Show notification as soon as the script is executed
+pcall(function()
+    local Event = game:GetService("ReplicatedStorage").Events.ShowNotification
+    firesignal(Event.OnClientEvent, "LuisGamerCoolHub loaded Successfully", "Success")
+end)
 
+task.wait(3)
+
+pcall(function()
+    local Event = game:GetService("ReplicatedStorage").Events.ShowNotification
+    firesignal(Event.OnClientEvent, "Subscribe to my youtube channel, here the hub, press k!", "Success")
+end)
+
+task.wait()
+
+return function(_, api)
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
 
@@ -184,7 +193,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.7 - Notification Added")
+        tab.Text("Version: 1.8 - Notification on Execute")
         tab.Text("Thanks for using the hub!")
     end)
 end
