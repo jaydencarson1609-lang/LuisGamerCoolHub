@@ -1,5 +1,5 @@
 -- CUSTOM TAB TEXT VISIBILITY FIX
--- SEARCHABLE SUPPORTED-GAMES LIST + RELIABLE SMOOTH DRAG VERSION
+-- POSH LETTER-ONLY SEARCH TYPING + EXPANDED HELPFUL SETTINGS
 -- VERIFIED UI.LUA VERSION — SINGLE GUI ONLY
 -- Supported game: custom api.Tab tabs + Settings; no automatic game-name tab
 -- Unsupported game: Home + Supported Games + Settings
@@ -145,7 +145,14 @@ singletonState.Cleanup = function()
         end)
     end
 
+    if singletonState.BlurEffect and singletonState.BlurEffect.Parent then
+        pcall(function()
+            singletonState.BlurEffect:Destroy()
+        end)
+    end
+
     singletonState.Gui = nil
+    singletonState.BlurEffect = nil
 
     if Environment[SINGLETON_KEY] == singletonState then
         Environment[SINGLETON_KEY] = nil
@@ -1412,6 +1419,132 @@ local function AddSupportedGamesList()
     searchBox.ZIndex = 3
     searchBox.Parent = searchBar
 
+    -- Posh letter-only typing animation. The search bar, icon and results do
+    -- not bounce when typing. Only the newly entered character softly rises
+    -- and fades into place while the previous characters stay completely still.
+    local stableSearchText = Instance.new("TextLabel")
+    stableSearchText.Name = "StableSearchText"
+    stableSearchText.BackgroundTransparency = 1
+    stableSearchText.Position = searchBox.Position
+    stableSearchText.Size = searchBox.Size
+    stableSearchText.FontFace = searchBox.FontFace
+    stableSearchText.Text = ""
+    stableSearchText.TextColor3 = searchBox.TextColor3
+    stableSearchText.TextSize = searchBox.TextSize
+    stableSearchText.TextWrapped = false
+    stableSearchText.TextXAlignment = searchBox.TextXAlignment
+    stableSearchText.TextYAlignment = searchBox.TextYAlignment
+    stableSearchText.TextTransparency = 0
+    stableSearchText.MaxVisibleGraphemes = -1
+    stableSearchText.ZIndex = 4
+    stableSearchText.Active = false
+    stableSearchText.Parent = searchBar
+
+    local revealSearchText = stableSearchText:Clone()
+    revealSearchText.Name = "RevealingSearchText"
+    revealSearchText.TextTransparency = 1
+    revealSearchText.ZIndex = 4
+    revealSearchText.Parent = searchBar
+
+    -- Keep the real TextBox above the labels so its caret and selection still
+    -- work. Its text is hidden whenever the mirrored labels are displaying it.
+    searchBox.ZIndex = 5
+
+    local searchTextBasePosition = searchBox.Position
+    local revealTween = nil
+    local revealAnimationId = 0
+
+    local function getGraphemeCount(value)
+        local ok, count = pcall(function()
+            return utf8.len(value)
+        end)
+
+        if ok and count then
+            return count
+        end
+
+        return #value
+    end
+
+    local function setMirroredSearchText(currentText, previousText)
+        revealAnimationId += 1
+        local thisAnimation = revealAnimationId
+
+        if revealTween then
+            pcall(function()
+                revealTween:Cancel()
+            end)
+            revealTween = nil
+        end
+
+        currentText = tostring(currentText or "")
+        previousText = tostring(previousText or "")
+
+        if currentText == "" then
+            searchBox.TextTransparency = 0
+            stableSearchText.Text = ""
+            revealSearchText.Text = ""
+            revealSearchText.TextTransparency = 1
+            revealSearchText.Position = searchTextBasePosition
+            return
+        end
+
+        searchBox.TextTransparency = 1
+        stableSearchText.Text = currentText
+        revealSearchText.Text = currentText
+
+        local appendedAtEnd = #currentText > #previousText
+            and string.sub(currentText, 1, #previousText) == previousText
+
+        if not appendedAtEnd then
+            stableSearchText.MaxVisibleGraphemes = -1
+            revealSearchText.TextTransparency = 1
+            revealSearchText.Position = searchTextBasePosition
+            return
+        end
+
+        local graphemeCount = getGraphemeCount(currentText)
+
+        -- The stable label shows everything except the newest character. The
+        -- reveal label contains the full text and fades in over it, which means
+        -- only the final character appears to animate.
+        stableSearchText.MaxVisibleGraphemes = math.max(0, graphemeCount - 1)
+        revealSearchText.MaxVisibleGraphemes = -1
+        revealSearchText.TextTransparency = 1
+        revealSearchText.Position = UDim2.new(
+            searchTextBasePosition.X.Scale,
+            searchTextBasePosition.X.Offset,
+            searchTextBasePosition.Y.Scale,
+            searchTextBasePosition.Y.Offset + 3
+        )
+
+        revealTween = TweenService:Create(
+            revealSearchText,
+            TweenInfo.new(
+                0.16,
+                Enum.EasingStyle.Quint,
+                Enum.EasingDirection.Out
+            ),
+            {
+                TextTransparency = 0,
+                Position = searchTextBasePosition,
+            }
+        )
+
+        revealTween.Completed:Connect(function(playbackState)
+            if playbackState ~= Enum.PlaybackState.Completed
+                or thisAnimation ~= revealAnimationId then
+                return
+            end
+
+            stableSearchText.MaxVisibleGraphemes = -1
+            revealSearchText.TextTransparency = 1
+            revealSearchText.Position = searchTextBasePosition
+        end)
+
+        revealTween:Play()
+    end
+
     local clearSearch = Instance.new("TextButton")
     clearSearch.Name = "ClearSearch"
     clearSearch.AnchorPoint = Vector2.new(1, 0.5)
@@ -1432,6 +1565,62 @@ local function AddSupportedGamesList()
     local clearCorner = Instance.new("UICorner")
     clearCorner.CornerRadius = UDim.new(1, 0)
     clearCorner.Parent = clearSearch
+
+    local clearScale = Instance.new("UIScale")
+    clearScale.Name = "ClearSearchScale"
+    clearScale.Scale = 0.72
+    clearScale.Parent = clearSearch
+
+    local clearVisibilityId = 0
+    local clearVisibilityTween
+
+    local function setClearSearchVisible(visible)
+        clearVisibilityId += 1
+        local thisVisibility = clearVisibilityId
+
+        if clearVisibilityTween then
+            pcall(function()
+                clearVisibilityTween:Cancel()
+            end)
+        end
+
+        if visible then
+            clearSearch.Visible = true
+            clearSearch.TextTransparency = math.max(clearSearch.TextTransparency, 0.15)
+
+            clearVisibilityTween = TweenService:Create(
+                clearScale,
+                TweenInfo.new(0.17, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+                { Scale = 1 }
+            )
+            clearVisibilityTween:Play()
+
+            TweenService:Create(
+                clearSearch,
+                TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                { TextTransparency = 0 }
+            ):Play()
+        else
+            clearVisibilityTween = TweenService:Create(
+                clearScale,
+                TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                { Scale = 0.72 }
+            )
+            clearVisibilityTween:Play()
+
+            TweenService:Create(
+                clearSearch,
+                TweenInfo.new(0.10, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                { TextTransparency = 1 }
+            ):Play()
+
+            task.delay(0.13, function()
+                if thisVisibility == clearVisibilityId and clearSearch.Parent then
+                    clearSearch.Visible = false
+                end
+            end)
+        end
+    end
 
     clearSearch.MouseEnter:Connect(function()
         TweenService:Create(
@@ -1547,10 +1736,22 @@ local function AddSupportedGamesList()
         local row = CreateGameElement(entry, index)
         row.Parent = list
 
+        local rowScale = Instance.new("UIScale")
+        rowScale.Name = "SearchResultScale"
+        rowScale.Scale = 1
+        rowScale.Parent = row
+
         table.insert(rows, {
             Entry = entry,
             Row = row,
+            Scale = rowScale,
+            Header = row:FindFirstChild("GameName"),
+            Status = row:FindFirstChild("StatusSignal"),
+            Divider = row:FindFirstChild("Divider"),
             SearchName = string.lower(tostring(entry.game or "")),
+            IsShown = true,
+            AnimationId = 0,
+            Tweens = {},
         })
     end
 
@@ -1570,6 +1771,162 @@ local function AddSupportedGamesList()
         return value
     end
 
+    local function playRowTween(data, key, object, info, properties)
+        if not object or not object.Parent then
+            return
+        end
+
+        local previous = data.Tweens[key]
+        if previous then
+            pcall(function()
+                previous:Cancel()
+            end)
+        end
+
+        local tween = TweenService:Create(object, info, properties)
+        data.Tweens[key] = tween
+        tween:Play()
+    end
+
+    local function setResultShown(data, shown)
+        if data.IsShown == shown and data.Row.Visible == shown then
+            return
+        end
+
+        data.AnimationId += 1
+        local thisAnimation = data.AnimationId
+        data.IsShown = shown
+
+        local fastInfo = TweenInfo.new(
+            0.11,
+            Enum.EasingStyle.Quad,
+            shown and Enum.EasingDirection.Out or Enum.EasingDirection.In
+        )
+
+        local settleInfo = TweenInfo.new(
+            0.18,
+            Enum.EasingStyle.Back,
+            Enum.EasingDirection.Out
+        )
+
+        if shown then
+            data.Row.Visible = true
+            data.Scale.Scale = 0.965
+
+            if data.Header then
+                data.Header.TextTransparency = 1
+            end
+
+            if data.Status and (data.Status:IsA("ImageLabel") or data.Status:IsA("ImageButton")) then
+                data.Status.ImageTransparency = 1
+            end
+
+            if data.Divider then
+                data.Divider.BackgroundTransparency = 1
+            end
+
+            playRowTween(data, "Scale", data.Scale, settleInfo, {
+                Scale = 1,
+            })
+
+            if data.Header then
+                playRowTween(data, "Header", data.Header, fastInfo, {
+                    TextTransparency = 0,
+                })
+            end
+
+            if data.Status and (data.Status:IsA("ImageLabel") or data.Status:IsA("ImageButton")) then
+                playRowTween(data, "Status", data.Status, fastInfo, {
+                    ImageTransparency = 0,
+                })
+            end
+
+            if data.Divider then
+                playRowTween(data, "Divider", data.Divider, fastInfo, {
+                    BackgroundTransparency = 0.70,
+                })
+            end
+        else
+            playRowTween(data, "Scale", data.Scale, fastInfo, {
+                Scale = 0.965,
+            })
+
+            if data.Header then
+                playRowTween(data, "Header", data.Header, fastInfo, {
+                    TextTransparency = 1,
+                })
+            end
+
+            if data.Status and (data.Status:IsA("ImageLabel") or data.Status:IsA("ImageButton")) then
+                playRowTween(data, "Status", data.Status, fastInfo, {
+                    ImageTransparency = 1,
+                })
+            end
+
+            if data.Divider then
+                playRowTween(data, "Divider", data.Divider, fastInfo, {
+                    BackgroundTransparency = 1,
+                })
+            end
+
+            task.delay(0.115, function()
+                if data.AnimationId == thisAnimation
+                    and not data.IsShown
+                    and data.Row.Parent then
+                    data.Row.Visible = false
+                    task.defer(updateCanvas)
+                end
+            end)
+        end
+    end
+
+    local emptyScale = Instance.new("UIScale")
+    emptyScale.Name = "NoResultsScale"
+    emptyScale.Scale = 0.96
+    emptyScale.Parent = empty
+
+    local emptyAnimationId = 0
+    local function setEmptyVisible(visible)
+        emptyAnimationId += 1
+        local thisAnimation = emptyAnimationId
+
+        if visible then
+            empty.Visible = true
+            empty.TextTransparency = 1
+            emptyScale.Scale = 0.96
+
+            TweenService:Create(
+                empty,
+                TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                { TextTransparency = 0 }
+            ):Play()
+
+            TweenService:Create(
+                emptyScale,
+                TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+                { Scale = 1 }
+            ):Play()
+        elseif empty.Visible then
+            TweenService:Create(
+                empty,
+                TweenInfo.new(0.10, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                { TextTransparency = 1 }
+            ):Play()
+
+            TweenService:Create(
+                emptyScale,
+                TweenInfo.new(0.10, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                { Scale = 0.96 }
+            ):Play()
+
+            task.delay(0.11, function()
+                if thisAnimation == emptyAnimationId and empty.Parent then
+                    empty.Visible = false
+                end
+            end)
+        end
+    end
+
     local function applySearch()
         local query = normaliseSearch(searchBox.Text)
         local visibleCount = 0
@@ -1578,7 +1935,25 @@ local function AddSupportedGamesList()
             local matches = query == ""
                 or string.find(data.SearchName, query, 1, true) ~= nil
 
+            -- Filtering is immediate and clean. There are no row bounces or
+            -- icon pulses; the only typing animation is the entered letter.
+            data.IsShown = matches
             data.Row.Visible = matches
+            data.Scale.Scale = 1
+
+            if data.Header then
+                data.Header.TextTransparency = 0
+            end
+
+            if data.Status
+                and (data.Status:IsA("ImageLabel")
+                    or data.Status:IsA("ImageButton")) then
+                data.Status.ImageTransparency = 0
+            end
+
+            if data.Divider then
+                data.Divider.BackgroundTransparency = 0.70
+            end
 
             if matches then
                 visibleCount += 1
@@ -1586,14 +1961,28 @@ local function AddSupportedGamesList()
         end
 
         empty.Visible = visibleCount == 0
-        clearSearch.Visible = query ~= ""
-        list.CanvasPosition = Vector2.new(0, 0)
+        empty.TextTransparency = 0
+        emptyScale.Scale = 1
 
+        local hasSearch = query ~= ""
+        clearSearch.Visible = hasSearch
+        clearSearch.TextTransparency = 0
+        clearScale.Scale = 1
+
+        list.CanvasPosition = Vector2.new(0, 0)
         task.defer(updateCanvas)
     end
 
+    local previousSearchText = searchBox.Text
+    setMirroredSearchText(previousSearchText, "")
+
     layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCanvas)
-    searchBox:GetPropertyChangedSignal("Text"):Connect(applySearch)
+    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local currentText = searchBox.Text
+        setMirroredSearchText(currentText, previousSearchText)
+        previousSearchText = currentText
+        applySearch()
+    end)
 
     clearSearch.MouseButton1Click:Connect(function()
         searchBox.Text = ""
@@ -1822,6 +2211,9 @@ local HubDefaultPosition = originalPosition
 -- drag target are created in the bottom-drag section later in this file.
 local DragHandle
 local dragTargetPosition
+local MobileOpenButton
+local applyMobileOpenButton
+local snapHubOnScreen
 
 local SettingsState = {
     -- Performance
@@ -1850,6 +2242,13 @@ local SettingsState = {
 
     -- Audio
     MuteAudio = false,
+    PauseAudioWithHub = false,
+
+    -- Extra information overlay
+    ShowCoordinates = false,
+    ShowMovementSpeed = false,
+    ShowSessionTime = false,
+    ShowGameName = false,
 
     -- Hub and interface
     CompactHub = false,
@@ -1858,6 +2257,14 @@ local SettingsState = {
     HideLogo = false,
     ReduceAnimations = false,
     ShowDragHandle = true,
+    BlurBehindHub = false,
+    DimBackground = false,
+    KeepEntireHubOnScreen = UserInputService.TouchEnabled,
+    EscapeClosesHub = true,
+    MobileOpenButton = UserInputService.TouchEnabled,
+
+    -- Safety and convenience
+    ConfirmImportantActions = true,
 }
 
 -- Read and write engine properties safely. Some executors or game builds can
@@ -1934,6 +2341,7 @@ local StatsOverlay = nil
 local StatsFrames = 0
 local StatsElapsed = 0
 local CurrentFPS = 0
+local SessionStartedAt = os.clock()
 
 local HubSettingsScale = MainFrame:FindFirstChild("HubSettingsScale")
 if not HubSettingsScale then
@@ -1941,6 +2349,106 @@ if not HubSettingsScale then
     HubSettingsScale.Name = "HubSettingsScale"
     HubSettingsScale.Scale = 1
     HubSettingsScale.Parent = MainFrame
+end
+
+-- Optional dim and blur effects shown only while the hub is open.
+local HubDimOverlay = Instance.new("Frame")
+HubDimOverlay.Name = "HubDimOverlay"
+HubDimOverlay.Size = UDim2.fromScale(1, 1)
+HubDimOverlay.Position = UDim2.fromScale(0, 0)
+HubDimOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+HubDimOverlay.BackgroundTransparency = 1
+HubDimOverlay.BorderSizePixel = 0
+HubDimOverlay.Active = false
+HubDimOverlay.Visible = false
+HubDimOverlay.ZIndex = 0
+HubDimOverlay.Parent = G2L["1"]
+
+MainFrame.ZIndex = math.max(MainFrame.ZIndex, 2)
+
+local HubBlurEffect = Instance.new("BlurEffect")
+HubBlurEffect.Name = "LuisGamerCoolHubBlur"
+HubBlurEffect.Size = 0
+HubBlurEffect.Enabled = false
+HubBlurEffect.Parent = Lighting
+singletonState.BlurEffect = HubBlurEffect
+
+local BackdropAnimationId = 0
+local BackdropTween = nil
+local BlurTween = nil
+
+local function applyBackdropSettings(animate, hubVisibleOverride)
+    BackdropAnimationId += 1
+    local thisAnimation = BackdropAnimationId
+
+    local hubVisible = hubVisibleOverride
+    if hubVisible == nil then
+        hubVisible = MainFrame.Visible
+    end
+
+    local shouldDim = SettingsState.DimBackground and hubVisible
+    local shouldBlur = SettingsState.BlurBehindHub and hubVisible
+    local duration = (animate == false or SettingsState.ReduceAnimations) and 0 or 0.20
+
+    if BackdropTween then
+        pcall(function() BackdropTween:Cancel() end)
+    end
+
+    if BlurTween then
+        pcall(function() BlurTween:Cancel() end)
+    end
+
+    if shouldDim then
+        HubDimOverlay.Visible = true
+    end
+
+    if shouldBlur then
+        HubBlurEffect.Enabled = true
+    end
+
+    BackdropTween = TweenService:Create(
+        HubDimOverlay,
+        TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        { BackgroundTransparency = shouldDim and 0.48 or 1 }
+    )
+    BackdropTween:Play()
+
+    BlurTween = TweenService:Create(
+        HubBlurEffect,
+        TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        { Size = shouldBlur and 14 or 0 }
+    )
+    BlurTween:Play()
+
+    task.delay(duration + 0.02, function()
+        if thisAnimation ~= BackdropAnimationId then
+            return
+        end
+
+        if not shouldDim and HubDimOverlay.Parent then
+            HubDimOverlay.Visible = false
+        end
+
+        if not shouldBlur and HubBlurEffect.Parent then
+            HubBlurEffect.Enabled = false
+        end
+    end)
+end
+
+local function applyAudioSettings(hubVisibleOverride)
+    local hubVisible = hubVisibleOverride
+    if hubVisible == nil then
+        hubVisible = MainFrame.Visible
+    end
+
+    local shouldMute = SettingsState.MuteAudio
+        or (SettingsState.PauseAudioWithHub and hubVisible)
+
+    safeWriteProperty(
+        SoundService,
+        "Volume",
+        shouldMute and 0 or OriginalSoundVolume
+    )
 end
 
 local function isVisualEffect(object)
@@ -1953,6 +2461,10 @@ local function isVisualEffect(object)
 end
 
 local function isPostEffect(object)
+    if object == HubBlurEffect then
+        return false
+    end
+
     return object:IsA("BloomEffect")
         or object:IsA("BlurEffect")
         or object:IsA("ColorCorrectionEffect")
@@ -2168,6 +2680,10 @@ local function anyStatsEnabled()
         or SettingsState.ShowMemory
         or SettingsState.ShowClock
         or SettingsState.ShowPlayerCount
+        or SettingsState.ShowCoordinates
+        or SettingsState.ShowMovementSpeed
+        or SettingsState.ShowSessionTime
+        or SettingsState.ShowGameName
 end
 
 local function createStatsOverlay()
@@ -2179,7 +2695,7 @@ local function createStatsOverlay()
     StatsOverlay.Name = "LuisPCStatsOverlay"
     StatsOverlay.AnchorPoint = Vector2.new(1, 0)
     StatsOverlay.Position = UDim2.new(1, -14, 0, 14)
-    StatsOverlay.Size = UDim2.new(0, 172, 0, 38)
+    StatsOverlay.Size = UDim2.new(0, 230, 0, 38)
     StatsOverlay.AutomaticSize = Enum.AutomaticSize.Y
     StatsOverlay.BackgroundColor3 = Color3.fromRGB(12, 45, 19)
     StatsOverlay.BackgroundTransparency = 0.18
@@ -2217,6 +2733,66 @@ local function createStatsOverlay()
     stroke.Thickness = 2
     stroke.Transparency = 0.25
     stroke.Parent = StatsOverlay
+end
+
+local function getCharacterRoot()
+    local character = LocalPlayer.Character
+    if not character then
+        return nil
+    end
+
+    return character:FindFirstChild("HumanoidRootPart")
+end
+
+local function getCoordinatesText()
+    local root = getCharacterRoot()
+    if not root then
+        return "--, --, --"
+    end
+
+    local position = root.Position
+    return string.format(
+        "%.1f, %.1f, %.1f",
+        position.X,
+        position.Y,
+        position.Z
+    )
+end
+
+local function getMovementSpeedText()
+    local root = getCharacterRoot()
+    if not root then
+        return "--"
+    end
+
+    local velocity = safeReadProperty(
+        root,
+        "AssemblyLinearVelocity",
+        Vector3.new(0, 0, 0)
+    )
+
+    return string.format("%.1f", velocity.Magnitude)
+end
+
+local function getSessionTimeText()
+    local elapsed = math.max(0, math.floor(os.clock() - SessionStartedAt))
+    local hours = math.floor(elapsed / 3600)
+    local minutes = math.floor((elapsed % 3600) / 60)
+    local seconds = elapsed % 60
+
+    if hours > 0 then
+        return string.format("%02d:%02d:%02d", hours, minutes, seconds)
+    end
+
+    return string.format("%02d:%02d", minutes, seconds)
+end
+
+local function getDisplayGameName()
+    if CurrentGameEntry and CurrentGameEntry.game then
+        return tostring(CurrentGameEntry.game)
+    end
+
+    return tostring(game.Name or "Current Game")
 end
 
 local function refreshStatsOverlay()
@@ -2280,6 +2856,22 @@ local function refreshStatsOverlay()
             )
         end
 
+        if SettingsState.ShowCoordinates then
+            table.insert(lines, "Position: " .. getCoordinatesText())
+        end
+
+        if SettingsState.ShowMovementSpeed then
+            table.insert(lines, "Speed: " .. getMovementSpeedText())
+        end
+
+        if SettingsState.ShowSessionTime then
+            table.insert(lines, "Session: " .. getSessionTimeText())
+        end
+
+        if SettingsState.ShowGameName then
+            table.insert(lines, "Game: " .. getDisplayGameName())
+        end
+
         if StatsOverlay and StatsOverlay.Parent then
             StatsOverlay.Text = table.concat(lines, "\n")
         end
@@ -2329,6 +2921,12 @@ local function applyHubInterfaceSettings(animate)
             { Scale = scale }
         ):Play()
     end
+
+    if applyMobileOpenButton then
+        applyMobileOpenButton()
+    end
+
+    applyBackdropSettings(animate)
 end
 
 local function centerHub()
@@ -2447,6 +3045,71 @@ local function AddSettingsButton(parent, text, callback)
     return button
 end
 
+local function getElementInstance(element)
+    if typeof(element) == "Instance" then
+        return element
+    end
+
+    if type(element) == "table" then
+        return element.Instance
+            or element.Button
+            or element.Root
+            or element.Frame
+    end
+
+    return nil
+end
+
+local function AddSettingsConfirmButton(parent, text, callback)
+    local armed = false
+    local armId = 0
+    local buttonResult
+
+    buttonResult = AddSettingsButton(parent, text, function()
+        local buttonInstance = getElementInstance(buttonResult)
+
+        if not SettingsState.ConfirmImportantActions then
+            callback()
+            return
+        end
+
+        if not armed then
+            armed = true
+            armId += 1
+            local thisArm = armId
+
+            if buttonInstance and buttonInstance:IsA("TextButton") then
+                buttonInstance.Text = "Click again to confirm"
+            end
+
+            task.delay(2, function()
+                if thisArm ~= armId or not armed then
+                    return
+                end
+
+                armed = false
+
+                if buttonInstance and buttonInstance.Parent then
+                    buttonInstance.Text = text
+                end
+            end)
+
+            return
+        end
+
+        armed = false
+        armId += 1
+
+        if buttonInstance and buttonInstance.Parent then
+            buttonInstance.Text = text
+        end
+
+        callback()
+    end)
+
+    return buttonResult
+end
+
 local function restoreDefaultSettings()
     SettingsState.DisableShadows = false
     SettingsState.DisableRendering = false
@@ -2470,6 +3133,12 @@ local function restoreDefaultSettings()
     SettingsState.HideTopBar = false
 
     SettingsState.MuteAudio = false
+    SettingsState.PauseAudioWithHub = false
+
+    SettingsState.ShowCoordinates = false
+    SettingsState.ShowMovementSpeed = false
+    SettingsState.ShowSessionTime = false
+    SettingsState.ShowGameName = false
 
     SettingsState.CompactHub = false
     SettingsState.AutoCompactMobile = UserInputService.TouchEnabled
@@ -2477,18 +3146,29 @@ local function restoreDefaultSettings()
     SettingsState.HideLogo = false
     SettingsState.ReduceAnimations = false
     SettingsState.ShowDragHandle = true
+    SettingsState.BlurBehindHub = false
+    SettingsState.DimBackground = false
+    SettingsState.KeepEntireHubOnScreen = UserInputService.TouchEnabled
+    SettingsState.EscapeClosesHub = true
+    SettingsState.MobileOpenButton = UserInputService.TouchEnabled
+    SettingsState.ConfirmImportantActions = true
 
     pcall(function()
         RunService:Set3dRenderingEnabled(true)
     end)
 
-    safeWriteProperty(SoundService, "Volume", OriginalSoundVolume)
+    applyAudioSettings()
     applyLightingSettings()
     applyEffectSettings()
     applyPostProcessingSettings()
     applyPCControlSettings()
     refreshStatsOverlay()
     applyHubInterfaceSettings(true)
+    applyBackdropSettings(true)
+
+    if applyMobileOpenButton then
+        applyMobileOpenButton()
+    end
 
     originalPosition = HubDefaultPosition
 
@@ -2618,11 +3298,35 @@ local function ShowSettings()
         refreshStatsOverlay()
     end)
 
+    AddSettingsToggle(list, "Show Coordinates", SettingsState.ShowCoordinates, function(enabled)
+        SettingsState.ShowCoordinates = enabled
+        refreshStatsOverlay()
+    end)
+
+    AddSettingsToggle(list, "Show Movement Speed", SettingsState.ShowMovementSpeed, function(enabled)
+        SettingsState.ShowMovementSpeed = enabled
+        refreshStatsOverlay()
+    end)
+
+    AddSettingsToggle(list, "Show Session Time", SettingsState.ShowSessionTime, function(enabled)
+        SettingsState.ShowSessionTime = enabled
+        refreshStatsOverlay()
+    end)
+
+    AddSettingsToggle(list, "Show Current Game", SettingsState.ShowGameName, function(enabled)
+        SettingsState.ShowGameName = enabled
+        refreshStatsOverlay()
+    end)
+
     -- ==================== PC CONTROLS ====================
     AddSettingsSection(list, "PC Controls")
 
     AddSettingsToggle(list, "Right Shift Opens Hub", SettingsState.RightShiftToggle, function(enabled)
         SettingsState.RightShiftToggle = enabled
+    end)
+
+    AddSettingsToggle(list, "Escape Closes Hub", SettingsState.EscapeClosesHub, function(enabled)
+        SettingsState.EscapeClosesHub = enabled
     end)
 
     AddSettingsToggle(list, "Keep Mouse Unlocked", SettingsState.KeepMouseUnlocked, function(enabled)
@@ -2655,11 +3359,12 @@ local function ShowSettings()
 
     AddSettingsToggle(list, "Mute Game Audio", SettingsState.MuteAudio, function(enabled)
         SettingsState.MuteAudio = enabled
-        safeWriteProperty(
-            SoundService,
-            "Volume",
-            enabled and 0 or OriginalSoundVolume
-        )
+        applyAudioSettings()
+    end)
+
+    AddSettingsToggle(list, "Pause Audio While Hub Is Open", SettingsState.PauseAudioWithHub, function(enabled)
+        SettingsState.PauseAudioWithHub = enabled
+        applyAudioSettings()
     end)
 
     -- ==================== HUB AND INTERFACE ====================
@@ -2695,6 +3400,32 @@ local function ShowSettings()
         applyHubInterfaceSettings(true)
     end)
 
+    AddSettingsToggle(list, "Blur Behind Hub", SettingsState.BlurBehindHub, function(enabled)
+        SettingsState.BlurBehindHub = enabled
+        applyBackdropSettings(true)
+    end)
+
+    AddSettingsToggle(list, "Dim Background Behind Hub", SettingsState.DimBackground, function(enabled)
+        SettingsState.DimBackground = enabled
+        applyBackdropSettings(true)
+    end)
+
+    AddSettingsToggle(list, "Keep Entire Hub On Screen", SettingsState.KeepEntireHubOnScreen, function(enabled)
+        SettingsState.KeepEntireHubOnScreen = enabled
+
+        if enabled and snapHubOnScreen then
+            snapHubOnScreen()
+        end
+    end)
+
+    AddSettingsToggle(list, "Mobile Reopen Button", SettingsState.MobileOpenButton, function(enabled)
+        SettingsState.MobileOpenButton = enabled
+
+        if applyMobileOpenButton then
+            applyMobileOpenButton()
+        end
+    end)
+
     AddSettingsButton(list, "Centre Hub", function()
         centerHub()
     end)
@@ -2717,10 +3448,45 @@ local function ShowSettings()
         ):Play()
     end)
 
+    -- ==================== SAFETY AND CONVENIENCE ====================
+    AddSettingsSection(list, "Safety & Convenience")
+
+    AddSettingsToggle(list, "Confirm Important Actions", SettingsState.ConfirmImportantActions, function(enabled)
+        SettingsState.ConfirmImportantActions = enabled
+    end)
+
+    AddSettingsConfirmButton(list, "Reset Character", function()
+        local character = LocalPlayer.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+        if humanoid then
+            safeWriteProperty(humanoid, "Health", 0)
+        end
+    end)
+
+    AddSettingsButton(list, "Copy Username", function()
+        copyToClipboard(LocalPlayer.Name, "Username")
+    end)
+
+    AddSettingsButton(list, "Copy User ID", function()
+        copyToClipboard(LocalPlayer.UserId, "User ID")
+    end)
+
+    AddSettingsButton(list, "Copy Coordinates", function()
+        copyToClipboard(getCoordinatesText(), "Coordinates")
+    end)
+
+    AddSettingsButton(list, "Copy Game Link", function()
+        copyToClipboard(
+            "https://www.roblox.com/games/" .. tostring(game.PlaceId),
+            "Game Link"
+        )
+    end)
+
     -- ==================== SERVER AND CLIPBOARD ====================
     AddSettingsSection(list, "Server & Clipboard")
 
-    AddSettingsButton(list, "Rejoin Current Server", function()
+    AddSettingsConfirmButton(list, "Rejoin Current Server", function()
         local ok, err = pcall(function()
             if game.JobId and game.JobId ~= "" then
                 TeleportService:TeleportToPlaceInstance(
@@ -2738,7 +3504,7 @@ local function ShowSettings()
         end
     end)
 
-    AddSettingsButton(list, "Join a New Server", function()
+    AddSettingsConfirmButton(list, "Join a New Server", function()
         local ok, err = pcall(function()
             TeleportService:Teleport(game.PlaceId, LocalPlayer)
         end)
@@ -2759,7 +3525,7 @@ local function ShowSettings()
         copyToClipboard(game.JobId, "Job ID")
     end)
 
-    AddSettingsButton(list, "Restore Default Settings", function()
+    AddSettingsConfirmButton(list, "Restore Default Settings", function()
         restoreDefaultSettings()
         task.defer(ShowSettings)
     end)
@@ -2770,6 +3536,8 @@ end
 -- Automatically use the compact scale on touch devices when the default
 -- Auto Compact on Mobile option is enabled. The sectioned layout stays intact.
 applyHubInterfaceSettings(false)
+applyBackdropSettings(false, false)
+applyAudioSettings(false)
 
 local function ShowGame()
     if not CurrentGameEntry then
@@ -2892,17 +3660,56 @@ local function clampDragAbsolute(desiredAbsolute)
     local viewport = camera.ViewportSize
     local frameSize = MainFrame.AbsoluteSize
 
-    -- Keep enough of the UI visible to grab it again, while still allowing it
-    -- to reach every side of the screen.
-    local minX = -frameSize.X + 125
-    local maxX = viewport.X - 125
-    local minY = 58
-    local maxY = math.max(minY, viewport.Y - 82)
+    local minX
+    local maxX
+    local minY
+    local maxY
+
+    if SettingsState.KeepEntireHubOnScreen then
+        -- Leave room for the logo, close button and bottom drag handle.
+        minX = 6
+        maxX = math.max(minX, viewport.X - frameSize.X - 6)
+        minY = 70
+        maxY = math.max(minY, viewport.Y - frameSize.Y - 38)
+    else
+        -- Keep enough of the UI visible to grab it again, while still allowing
+        -- it to reach every side of the screen.
+        minX = -frameSize.X + 125
+        maxX = viewport.X - 125
+        minY = 58
+        maxY = math.max(minY, viewport.Y - 82)
+    end
 
     return Vector2.new(
         math.clamp(desiredAbsolute.X, minX, maxX),
         math.clamp(desiredAbsolute.Y, minY, maxY)
     )
+end
+
+snapHubOnScreen = function()
+    local currentAbsolute = MainFrame.AbsolutePosition
+    local clampedAbsolute = clampDragAbsolute(currentAbsolute)
+    local delta = clampedAbsolute - currentAbsolute
+
+    local target = UDim2.new(
+        MainFrame.Position.X.Scale,
+        MainFrame.Position.X.Offset + delta.X,
+        MainFrame.Position.Y.Scale,
+        MainFrame.Position.Y.Offset + delta.Y
+    )
+
+    dragTargetPosition = target
+    originalPosition = target
+
+    TweenService:Create(
+        MainFrame,
+        TweenInfo.new(
+            SettingsState.ReduceAnimations and 0.05 or 0.22,
+            Enum.EasingStyle.Quart,
+            Enum.EasingDirection.Out
+        ),
+        { Position = target }
+    ):Play()
 end
 
 local function setDragTarget(pointerPosition)
@@ -3151,6 +3958,35 @@ RunService.RenderStepped:Connect(function(deltaTime)
     end
 end)
 
+local connectedViewportCamera = nil
+local viewportSizeConnection = nil
+
+local function connectViewportWatcher()
+    local camera = workspace.CurrentCamera
+
+    if connectedViewportCamera == camera then
+        return
+    end
+
+    connectedViewportCamera = camera
+
+    if viewportSizeConnection then
+        viewportSizeConnection:Disconnect()
+        viewportSizeConnection = nil
+    end
+
+    if camera then
+        viewportSizeConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            if SettingsState.KeepEntireHubOnScreen and snapHubOnScreen then
+                task.defer(snapHubOnScreen)
+            end
+        end)
+    end
+end
+
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(connectViewportWatcher)
+connectViewportWatcher()
+
 local function OpenGui()
     if animating or guiVisible then return end
     animating = true
@@ -3160,6 +3996,12 @@ local function OpenGui()
     MainFrame.Position = originalPosition + UDim2.new(0, 0, 0, SLIDE_OFFSET)
     MainFrame.Visible = true
     Fade(1, 0)
+    applyBackdropSettings(true, true)
+    applyAudioSettings(true)
+
+    if applyMobileOpenButton then
+        applyMobileOpenButton()
+    end
 
     if CurrentGameEntry then
         -- Load the supported game's content without creating a game-name tab.
@@ -3176,6 +4018,8 @@ local function CloseGui()
     if animating or not guiVisible then return end
     animating = true
 
+    applyBackdropSettings(true, false)
+    applyAudioSettings(false)
     SlideFade(false, 0.3)
 
     MainFrame.Visible = false
@@ -3183,10 +4027,88 @@ local function CloseGui()
     dragTargetPosition = originalPosition
     guiVisible = false
     animating = false
+
+    if applyMobileOpenButton then
+        applyMobileOpenButton()
+    end
 end
+
+-- A small mobile-only reopen button. It stays hidden while the hub is open.
+MobileOpenButton = Instance.new("TextButton")
+MobileOpenButton.Name = "MobileHubOpenButton"
+MobileOpenButton.AnchorPoint = Vector2.new(0, 1)
+MobileOpenButton.Position = UDim2.new(0, 14, 1, -18)
+MobileOpenButton.Size = UDim2.new(0, 56, 0, 56)
+MobileOpenButton.AutoButtonColor = false
+MobileOpenButton.BackgroundColor3 = Color3.fromRGB(24, 126, 35)
+MobileOpenButton.BackgroundTransparency = 0.10
+MobileOpenButton.BorderSizePixel = 0
+MobileOpenButton.FontFace = Font.new(
+    "rbxasset://fonts/families/ComicNeueAngular.json",
+    Enum.FontWeight.Bold,
+    Enum.FontStyle.Normal
+)
+MobileOpenButton.Text = "L"
+MobileOpenButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+MobileOpenButton.TextSize = 30
+MobileOpenButton.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+MobileOpenButton.TextStrokeTransparency = 0.25
+MobileOpenButton.Visible = false
+MobileOpenButton.ZIndex = 300
+MobileOpenButton.Parent = G2L["1"]
+
+local mobileButtonCorner = Instance.new("UICorner")
+mobileButtonCorner.CornerRadius = UDim.new(1, 0)
+mobileButtonCorner.Parent = MobileOpenButton
+
+local mobileButtonStroke = Instance.new("UIStroke")
+mobileButtonStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+mobileButtonStroke.Color = Color3.fromRGB(0, 0, 0)
+mobileButtonStroke.Thickness = 2
+mobileButtonStroke.Transparency = 0.22
+mobileButtonStroke.Parent = MobileOpenButton
+
+local mobileButtonScale = Instance.new("UIScale")
+mobileButtonScale.Scale = 1
+mobileButtonScale.Parent = MobileOpenButton
+
+applyMobileOpenButton = function()
+    MobileOpenButton.Visible = UserInputService.TouchEnabled
+        and SettingsState.MobileOpenButton
+        and not guiVisible
+end
+
+MobileOpenButton.MouseButton1Down:Connect(function()
+    TweenService:Create(
+        mobileButtonScale,
+        TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        { Scale = 0.92 }
+    ):Play()
+end)
+
+MobileOpenButton.MouseButton1Up:Connect(function()
+    TweenService:Create(
+        mobileButtonScale,
+        TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        { Scale = 1 }
+    ):Play()
+end)
+
+MobileOpenButton.MouseButton1Click:Connect(function()
+    OpenGui()
+end)
+
+applyMobileOpenButton()
 
 -- K keybind
 local toggleConnection = UserInputService.InputBegan:Connect(function(input, gp)
+    if SettingsState.EscapeClosesHub
+        and input.KeyCode == Enum.KeyCode.Escape
+        and guiVisible then
+        CloseGui()
+        return
+    end
+
     if gp then
         return
     end
@@ -3254,11 +4176,14 @@ local function FinishHold()
     TweenService:Create(HoldFill, TweenInfo.new(0.1), { BackgroundTransparency = 0 }):Play()
     task.wait(0.1)
 
+    applyBackdropSettings(true, false)
+    applyAudioSettings(false)
     SlideFade(false, 0.35)
     MainFrame.Visible = false
     guiVisible = false
 
     task.wait(0.05)
+    safeWriteProperty(SoundService, "Volume", OriginalSoundVolume)
     singletonState.Cleanup()
 end
 
@@ -3300,10 +4225,21 @@ G2L["1"].AncestryChanged:Connect(function(_, parent)
             singletonState.ToggleConnection = nil
         end
 
+        pcall(function()
+            SoundService.Volume = OriginalSoundVolume
+        end)
+
+        if HubBlurEffect and HubBlurEffect.Parent then
+            pcall(function()
+                HubBlurEffect:Destroy()
+            end)
+        end
+
         singletonState.Gui = nil
+        singletonState.BlurEffect = nil
         Environment[SINGLETON_KEY] = nil
     end
 end)
 
-print("✅ LuisGamerCoolHub loaded! Sectioned Settings + mobile compact + PC tools")
+print("✅ LuisGamerCoolHub loaded! Posh search typing + expanded helpful settings")
 return G2L["1"];
