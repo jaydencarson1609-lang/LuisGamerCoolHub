@@ -170,7 +170,7 @@ return function(_, api)
             end
         end)
 
-        -- Auto Collect Money (firetouchinterest)
+        -- Auto Collect Money (Simple firetouchinterest)
         tab.Toggle("Auto Collect Money", false, function(state)
             collectingMoney = state
 
@@ -190,7 +190,7 @@ return function(_, api)
                                                         local char = LocalPlayer.Character
                                                         if char then
                                                             firetouchinterest(char, collectTouch, 0)
-                                                            task.wait(0.08)
+                                                            task.wait(0.06)
                                                             firetouchinterest(char, collectTouch, 1)
                                                         end
                                                     end
@@ -201,7 +201,7 @@ return function(_, api)
                                 end
                             end
                         end
-                        task.wait(1.2)
+                        task.wait(1)
                     end
                 end)
             end
@@ -263,7 +263,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 2.3 - Simple FireTouch + MouseButton1Click")
+        tab.Text("Version: 2.4 - Simple FireTouch Only")
         tab.Text("Thanks for using the hub!")
     end)
 end
