@@ -93,30 +93,28 @@ return function(_, api)
         farmSession += 1
     end
 
-    -- ================= AUTO COLLECT MONEY =================
+    -- ================= AUTO COLLECT MONEY (AGGRESSIVE) =================
     local function startCollectingMoney()
         collectingMoney = true
         task.spawn(function()
             while collectingMoney do
                 pcall(function()
-                    local plotsFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Plots")
-                    if plotsFolder then
-                        for _, plot in ipairs(plotsFolder:GetChildren()) do
-                            if plot.Name:match("Plot") then
-                                local plotFolder = plot:FindFirstChild("Plot")
-                                if plotFolder then
-                                    local items = plotFolder:FindFirstChild("Items")
-                                    if items then
-                                        for _, item in ipairs(items:GetChildren()) do
+                    local plots = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Plots")
+                    if plots then
+                        for _, plot in ipairs(plots:GetChildren()) do
+                            if plot.Name:match("^Plot") then
+                                local plotMain = plot:FindFirstChild("Plot")
+                                if plotMain then
+                                    local itemsFolder = plotMain:FindFirstChild("Items")
+                                    if itemsFolder then
+                                        for _, item in ipairs(itemsFolder:GetChildren()) do
                                             if item.Name == "Item" then
                                                 local button = item:FindFirstChild("Button")
-                                                if button then
-                                                    local touch = button:FindFirstChild("TouchInterest")
-                                                    if touch and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
-                                                        firetouchinterest(LocalPlayer.Character.Head, touch, true)
-                                                        task.wait()
-                                                        firetouchinterest(LocalPlayer.Character.Head, touch, false)
-                                                    end
+                                                if button and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
+                                                    -- Fire on the Button itself (more reliable)
+                                                    firetouchinterest(LocalPlayer.Character.Head, button, true)
+                                                    task.wait()
+                                                    firetouchinterest(LocalPlayer.Character.Head, button, false)
                                                 end
                                             end
                                         end
@@ -126,7 +124,7 @@ return function(_, api)
                         end
                     end
                 end)
-                task.wait(0.15)
+                task.wait(0.1) -- Faster loop
             end
         end)
     end
@@ -135,7 +133,7 @@ return function(_, api)
         collectingMoney = false
     end
 
-    -- Resume farming after death
+    -- Resume after death
     LocalPlayer.CharacterAdded:Connect(function()
         if farming then
             task.wait(1.5)
@@ -179,7 +177,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.3 - Auto Collect Money Fixed")
+        tab.Text("Version: 1.4 - Better Auto Collect")
         tab.Text("Thanks for using the hub!")
     end)
 end
