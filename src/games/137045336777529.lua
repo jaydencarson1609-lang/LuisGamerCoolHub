@@ -93,49 +93,24 @@ return function(_, api)
         farmSession += 1
     end
 
-    -- ================= AUTO COLLECT MONEY (TELEPORT + FIRE) =================
+    -- ================= AUTO COLLECT MONEY (getnilinstances METHOD) =================
     local function startCollectingMoney()
         collectingMoney = true
         task.spawn(function()
             while collectingMoney do
                 pcall(function()
-                    local plotsFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Plots")
-                    if plotsFolder then
-                        for _, plot in ipairs(plotsFolder:GetChildren()) do
-                            if plot.Name:match("^Plot") then
-                                local plotMain = plot:FindFirstChild("Plot")
-                                if plotMain then
-                                    local itemsFolder = plotMain:FindFirstChild("Items")
-                                    if itemsFolder then
-                                        for _, item in ipairs(itemsFolder:GetChildren()) do
-                                            if item.Name == "Item" then
-                                                local firstButton = item:FindFirstChild("Button")
-                                                local secondButton = firstButton and firstButton:FindFirstChild("Button")
-                                                local touchInterest = secondButton and secondButton:FindFirstChild("TouchInterest")
-
-                                                if touchInterest and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
-                                                    local root = getRootPart()
-                                                    if root then
-                                                        -- Teleport close to the button
-                                                        teleport(root, secondButton.CFrame + Vector3.new(0, 3, 0))
-                                                        task.wait(0.1)
-                                                    end
-
-                                                    -- Fire the TouchInterest
-                                                    firetouchinterest(LocalPlayer.Character.Head, touchInterest, true)
-                                                    task.wait(0.05)
-                                                    firetouchinterest(LocalPlayer.Character.Head, touchInterest, false)
-                                                    task.wait(0.05)
-                                                end
-                                            end
-                                        end
-                                    end
-                                end
+                    for _, v in next, getnilinstances() do
+                        if v.ClassName == "TouchTransmitter" and v.Parent and v.Parent.Name == "Button" then
+                            local head = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")
+                            if head then
+                                firetouchinterest(head, v, true)
+                                task.wait()
+                                firetouchinterest(head, v, false)
                             end
                         end
                     end
                 end)
-                task.wait(0.3)
+                task.wait(0.15)
             end
         end)
     end
@@ -188,7 +163,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.8 - Teleport + Fire")
+        tab.Text("Version: 1.9 - getnilinstances Method")
         tab.Text("Thanks for using the hub!")
     end)
 end
