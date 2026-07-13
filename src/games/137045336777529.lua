@@ -93,7 +93,7 @@ return function(_, api)
         farmSession += 1
     end
 
-    -- ================= AUTO COLLECT MONEY (CORRECT) =================
+    -- ================= AUTO COLLECT MONEY (TELEPORT + FIRE) =================
     local function startCollectingMoney()
         collectingMoney = true
         task.spawn(function()
@@ -111,14 +111,21 @@ return function(_, api)
                                             if item.Name == "Item" then
                                                 local firstButton = item:FindFirstChild("Button")
                                                 local secondButton = firstButton and firstButton:FindFirstChild("Button")
+                                                local touchInterest = secondButton and secondButton:FindFirstChild("TouchInterest")
 
-                                                if secondButton then
-                                                    local touchInterest = secondButton:FindFirstChild("TouchInterest")
-                                                    if touchInterest and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
-                                                        firetouchinterest(LocalPlayer.Character.Head, touchInterest, true)
-                                                        task.wait()
-                                                        firetouchinterest(LocalPlayer.Character.Head, touchInterest, false)
+                                                if touchInterest and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
+                                                    local root = getRootPart()
+                                                    if root then
+                                                        -- Teleport close to the button
+                                                        teleport(root, secondButton.CFrame + Vector3.new(0, 3, 0))
+                                                        task.wait(0.1)
                                                     end
+
+                                                    -- Fire the TouchInterest
+                                                    firetouchinterest(LocalPlayer.Character.Head, touchInterest, true)
+                                                    task.wait(0.05)
+                                                    firetouchinterest(LocalPlayer.Character.Head, touchInterest, false)
+                                                    task.wait(0.05)
                                                 end
                                             end
                                         end
@@ -128,7 +135,7 @@ return function(_, api)
                         end
                     end
                 end)
-                task.wait(0.08)
+                task.wait(0.3)
             end
         end)
     end
@@ -181,7 +188,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.7 - Direct TouchInterest")
+        tab.Text("Version: 1.8 - Teleport + Fire")
         tab.Text("Thanks for using the hub!")
     end)
 end
