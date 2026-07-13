@@ -93,15 +93,15 @@ return function(_, api)
         farmSession += 1
     end
 
-    -- ================= AUTO COLLECT MONEY (AGGRESSIVE) =================
+    -- ================= AUTO COLLECT MONEY (CORRECT) =================
     local function startCollectingMoney()
         collectingMoney = true
         task.spawn(function()
             while collectingMoney do
                 pcall(function()
-                    local plots = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Plots")
-                    if plots then
-                        for _, plot in ipairs(plots:GetChildren()) do
+                    local plotsFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Plots")
+                    if plotsFolder then
+                        for _, plot in ipairs(plotsFolder:GetChildren()) do
                             if plot.Name:match("^Plot") then
                                 local plotMain = plot:FindFirstChild("Plot")
                                 if plotMain then
@@ -109,12 +109,16 @@ return function(_, api)
                                     if itemsFolder then
                                         for _, item in ipairs(itemsFolder:GetChildren()) do
                                             if item.Name == "Item" then
-                                                local button = item:FindFirstChild("Button")
-                                                if button and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
-                                                    -- Fire on the Button itself (more reliable)
-                                                    firetouchinterest(LocalPlayer.Character.Head, button, true)
-                                                    task.wait()
-                                                    firetouchinterest(LocalPlayer.Character.Head, button, false)
+                                                local firstButton = item:FindFirstChild("Button")
+                                                local secondButton = firstButton and firstButton:FindFirstChild("Button")
+
+                                                if secondButton then
+                                                    local touchInterest = secondButton:FindFirstChild("TouchInterest")
+                                                    if touchInterest and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
+                                                        firetouchinterest(LocalPlayer.Character.Head, touchInterest, true)
+                                                        task.wait()
+                                                        firetouchinterest(LocalPlayer.Character.Head, touchInterest, false)
+                                                    end
                                                 end
                                             end
                                         end
@@ -124,7 +128,7 @@ return function(_, api)
                         end
                     end
                 end)
-                task.wait(0.1) -- Faster loop
+                task.wait(0.08)
             end
         end)
     end
@@ -177,7 +181,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.4 - Better Auto Collect")
+        tab.Text("Version: 1.7 - Direct TouchInterest")
         tab.Text("Thanks for using the hub!")
     end)
 end
