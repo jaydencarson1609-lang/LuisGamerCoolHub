@@ -11,7 +11,6 @@ return function(_, api)
     local FARM_CFRAME = CFrame.new(78, 7, 4397)
     local farming = false
     local farmSession = 0
-    local collectingMoney = false
 
     local function getRootPart()
         local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -93,60 +92,7 @@ return function(_, api)
         farmSession += 1
     end
 
-    -- ================= AUTO COLLECT MONEY (ALL PLOTS + SPAM) =================
-    local function startCollectingMoney()
-        collectingMoney = true
-        task.spawn(function()
-            while collectingMoney do
-                pcall(function()
-                    local plotsFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Plots")
-                    if plotsFolder then
-                        for _, plot in ipairs(plotsFolder:GetChildren()) do
-                            if plot.Name:match("^Plot") then
-                                local plotMain = plot:FindFirstChild("Plot")
-                                if plotMain then
-                                    local itemsFolder = plotMain:FindFirstChild("Items")
-                                    if itemsFolder then
-                                        for _, item in ipairs(itemsFolder:GetChildren()) do
-                                            if item.Name == "Item" then
-                                                local firstButton = item:FindFirstChild("Button")
-                                                local secondButton = firstButton and firstButton:FindFirstChild("Button")
-                                                local touchInterest = secondButton and secondButton:FindFirstChild("TouchInterest")
-
-                                                if touchInterest and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
-                                                    local root = getRootPart()
-                                                    if root then
-                                                        -- Teleport on top of the button
-                                                        teleport(root, secondButton.CFrame + Vector3.new(0, 2, 0))
-                                                        task.wait(0.12)
-                                                    end
-
-                                                    -- Spam fire the TouchInterest
-                                                    for i = 1, 8 do
-                                                        firetouchinterest(LocalPlayer.Character.Head, touchInterest, true)
-                                                        task.wait(0.02)
-                                                        firetouchinterest(LocalPlayer.Character.Head, touchInterest, false)
-                                                        task.wait(0.02)
-                                                    end
-                                                end
-                                            end
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end)
-                task.wait(0.5)
-            end
-        end)
-    end
-
-    local function stopCollectingMoney()
-        collectingMoney = false
-    end
-
-    -- Resume after death
+    -- Resume farming after death
     LocalPlayer.CharacterAdded:Connect(function()
         if farming then
             task.wait(1.5)
@@ -161,14 +107,6 @@ return function(_, api)
                 startFarming()
             else
                 stopFarming()
-            end
-        end)
-
-        tab.Toggle("Auto Collect Money", false, function(state)
-            if state then
-                startCollectingMoney()
-            else
-                stopCollectingMoney()
             end
         end)
     end)
@@ -190,7 +128,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 2.1 - All Plots + Spam")
+        tab.Text("Version: 2.2 - Removed Auto Collect")
         tab.Text("Thanks for using the hub!")
     end)
 end
