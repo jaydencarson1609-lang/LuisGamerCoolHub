@@ -93,7 +93,7 @@ return function(_, api)
         farmSession += 1
     end
 
-    -- ================= AUTO COLLECT MONEY (MOST AGGRESSIVE) =================
+    -- ================= AUTO COLLECT MONEY (ALL PLOTS + SPAM) =================
     local function startCollectingMoney()
         collectingMoney = true
         task.spawn(function()
@@ -116,17 +116,17 @@ return function(_, api)
                                                 if touchInterest and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
                                                     local root = getRootPart()
                                                     if root then
-                                                        -- Stand directly on the button
+                                                        -- Teleport on top of the button
                                                         teleport(root, secondButton.CFrame + Vector3.new(0, 2, 0))
-                                                        task.wait(0.15)
+                                                        task.wait(0.12)
                                                     end
 
-                                                    -- Fire multiple times
-                                                    for i = 1, 5 do
+                                                    -- Spam fire the TouchInterest
+                                                    for i = 1, 8 do
                                                         firetouchinterest(LocalPlayer.Character.Head, touchInterest, true)
-                                                        task.wait(0.03)
+                                                        task.wait(0.02)
                                                         firetouchinterest(LocalPlayer.Character.Head, touchInterest, false)
-                                                        task.wait(0.03)
+                                                        task.wait(0.02)
                                                     end
                                                 end
                                             end
@@ -137,7 +137,7 @@ return function(_, api)
                         end
                     end
                 end)
-                task.wait(0.4)
+                task.wait(0.5)
             end
         end)
     end
@@ -190,7 +190,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 2.0 - Stand + Spam Fire")
+        tab.Text("Version: 2.1 - All Plots + Spam")
         tab.Text("Thanks for using the hub!")
     end)
 end
