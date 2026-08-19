@@ -8,10 +8,106 @@ return function(_, api)
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
     local lp = Players.LocalPlayer
-    local DestroyBlock = ReplicatedStorage:WaitForChild("Events"):WaitForChild("DestroyBlock")
-    local Built = workspace:WaitForChild("Built")
-
     local victimName = ""
+
+    local function getHRP()
+        local char = lp.Character
+        return char and char:FindFirstChild("HumanoidRootPart")
+    end
+
+    local function equipDestroyTool()
+        local char = lp.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if not char or not hum then
+            return false
+        end
+
+        local tool = char:FindFirstChild("Destroy Blocks")
+            or lp.Backpack:FindFirstChild("Destroy Blocks")
+        if not tool then
+            return false
+        end
+
+        if tool.Parent ~= char then
+            hum:EquipTool(tool)
+            task.wait(0.15)
+        end
+
+        return char:FindFirstChild("Destroy Blocks") ~= nil
+    end
+
+    -- The game only accepts DestroyBlock if the Destroy Blocks tool is
+    -- equipped and you are within 30 studs of the part.
+    local function deletePlots(plots)
+        task.spawn(function()
+            if not equipDestroyTool() then
+                return
+            end
+
+            local Event = ReplicatedStorage.Events.DestroyBlock
+            local remaining = {}
+
+            for _, plot in pairs(plots) do
+                if plot then
+                    for _, block in pairs(plot:GetChildren()) do
+                        if block:IsA("BasePart") then
+                            table.insert(remaining, block)
+                        end
+                    end
+                end
+            end
+
+            while #remaining > 0 do
+                if not equipDestroyTool() then
+                    break
+                end
+
+                local hrp = getHRP()
+                if not hrp then
+                    break
+                end
+
+                local nextBlock
+                for i = #remaining, 1, -1 do
+                    local block = remaining[i]
+                    if not (block and block.Parent) then
+                        table.remove(remaining, i)
+                    else
+                        nextBlock = block
+                        break
+                    end
+                end
+
+                if not nextBlock then
+                    break
+                end
+
+                if (hrp.Position - nextBlock.Position).Magnitude > 28 then
+                    hrp.CFrame = CFrame.new(nextBlock.Position + Vector3.new(0, 6, 0))
+                    task.wait(0.05)
+                    hrp = getHRP()
+                    if not hrp then
+                        break
+                    end
+                end
+
+                local origin = hrp.Position
+                for i = #remaining, 1, -1 do
+                    local block = remaining[i]
+                    if not (block and block.Parent) then
+                        table.remove(remaining, i)
+                    elseif (block.Position - origin).Magnitude <= 30 then
+                        table.remove(remaining, i)
+                        task.spawn(function()
+                            Event:InvokeServer(block)
+                        end)
+                    end
+                end
+
+                task.wait(0.05)
+            end
+        end)
+    end
 
     local function findPlayer(query)
         if type(query) ~= "string" or query == "" then
@@ -30,29 +126,14 @@ return function(_, api)
         if not player then
             return nil
         end
-        return Built:FindFirstChild(player.Name)
-    end
-
-    local function deleteBlocks(folder)
-        if not folder then
-            return
-        end
-        for _, block in ipairs(folder:GetChildren()) do
-            task.spawn(function()
-                pcall(function()
-                    DestroyBlock:InvokeServer(block)
-                end)
-            end)
-        end
+        return workspace.Built:FindFirstChild(player.Name)
     end
 
     api.Tab("Main", function(tab)
         tab.Section("Delete builds")
 
         tab.Button("Delete All", function()
-            for _, plot in ipairs(Built:GetChildren()) do
-                deleteBlocks(plot)
-            end
+            deletePlots(workspace.Built:GetChildren())
         end)
 
         tab.Input("Victim Name", "Type a username...", "", function(text)
@@ -61,14 +142,20 @@ return function(_, api)
 
         tab.Button("Delete Victim", function()
             local victim = findPlayer(victimName)
-            if not victim then
-                return
+            local plot = getPlot(victim)
+            if plot then
+                deletePlots({ plot })
             end
-            deleteBlocks(getPlot(victim))
         end)
 
         tab.Button("Delete My Blocks", function()
-            deleteBlocks(getPlot(lp))
+            pcall(function()
+                ReplicatedStorage.Events.DeleteAllPlayerBlocks:FireServer()
+            end)
+            local plot = getPlot(lp)
+            if plot then
+                deletePlots({ plot })
+            end
         end)
     end)
 
