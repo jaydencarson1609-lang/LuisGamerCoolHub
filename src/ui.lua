@@ -549,6 +549,59 @@ local GamesList = {}
 local GameById = {}
 local VerifiedGames = {}
 
+-- Keep recently added games here so a cached gameslist.json still detects them.
+local ExtraKnownGames = {
+    { game = "Build Anything", id = "125488740127641", status = "🟢" },
+}
+
+local function placeIdKeyList(id)
+    local keys = {}
+    local seen = {}
+
+    local function addKey(key)
+        if type(key) == "string" and key ~= "" and key ~= "nil" and not seen[key] then
+            seen[key] = true
+            table.insert(keys, key)
+        end
+    end
+
+    addKey(tostring(id or ""))
+
+    local asNumber = tonumber(id)
+    if asNumber and asNumber > 0 then
+        addKey(tostring(asNumber))
+        addKey(string.format("%.0f", asNumber))
+    end
+
+    return keys
+end
+
+local function registerGameEntry(entry)
+    if type(entry) ~= "table" then
+        return
+    end
+
+    local placeId = tonumber(entry.id)
+    if not placeId or placeId <= 0 then
+        return
+    end
+
+    local cleanEntry = {
+        game = tostring(entry.game or "Unknown Game"),
+        id = placeId,
+        status = tostring(entry.status or "")
+    }
+
+    table.insert(VerifiedGames, cleanEntry)
+
+    for _, key in ipairs(placeIdKeyList(entry.id)) do
+        GameById[key] = cleanEntry
+    end
+    for _, key in ipairs(placeIdKeyList(placeId)) do
+        GameById[key] = cleanEntry
+    end
+end
+
 do
     local ok, raw = pcall(function()
         return game:HttpGet(REPO_RAW .. "gameslist.json?cache=" .. tostring(os.time()))
@@ -562,21 +615,8 @@ do
         if decodeOk and typeof(decoded) == "table" then
             GamesList = decoded
 
-            -- Only keep games that have a real numeric Place ID.
             for _, entry in ipairs(GamesList) do
-                local placeId = tonumber(entry.id)
-                local gameName = tostring(entry.game or "Unknown Game")
-
-                if placeId and placeId > 0 then
-                    local cleanEntry = {
-                        game = gameName,
-                        id = placeId,
-                        status = tostring(entry.status or "")
-                    }
-
-                    table.insert(VerifiedGames, cleanEntry)
-                    GameById[tostring(placeId)] = cleanEntry
-                end
+                registerGameEntry(entry)
             end
         else
             warn("[LuisGamerCoolHub] Failed to decode gameslist.json")
@@ -584,10 +624,33 @@ do
     else
         warn("[LuisGamerCoolHub] Failed to fetch gameslist.json: " .. tostring(raw))
     end
+
+    for _, entry in ipairs(ExtraKnownGames) do
+        local already = false
+        for _, key in ipairs(placeIdKeyList(entry.id)) do
+            if GameById[key] then
+                already = true
+                break
+            end
+        end
+        if not already then
+            registerGameEntry(entry)
+        end
+    end
 end
 
-local CurrentPlaceId = tostring(game.PlaceId)
-local CurrentGameEntry = GameById[CurrentPlaceId]
+local CurrentPlaceId = string.format("%.0f", game.PlaceId)
+local CurrentGameEntry = GameById[CurrentPlaceId] or GameById[tostring(game.PlaceId)]
+
+if not CurrentGameEntry then
+    local currentNumber = tonumber(game.PlaceId)
+    for _, entry in ipairs(VerifiedGames) do
+        if tonumber(entry.id) == currentNumber then
+            CurrentGameEntry = entry
+            break
+        end
+    end
+end
 local originalPosition = MainFrame.Position
 local SLIDE_OFFSET = 40
 local ReduceUIAnimations = false
