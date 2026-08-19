@@ -551,7 +551,7 @@ local VerifiedGames = {}
 
 do
     local ok, raw = pcall(function()
-        return game:HttpGet(REPO_RAW .. "gameslist.json")
+        return game:HttpGet(REPO_RAW .. "gameslist.json?cache=" .. tostring(os.time()))
     end)
 
     if ok and raw then
