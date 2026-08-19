@@ -8,9 +8,8 @@ return function(_, api)
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
     local lp = Players.LocalPlayer
-    local HugRemotes = ReplicatedStorage:WaitForChild("HugRemotes")
-    local HugRequest = HugRemotes:WaitForChild("HugRequest")
-    local HugState = HugRemotes:WaitForChild("HugState")
+    local HugRequest = ReplicatedStorage:WaitForChild("HugRemotes"):WaitForChild("HugRequest")
+    local HugState = ReplicatedStorage:WaitForChild("HugRemotes"):WaitForChild("HugState")
 
     local TROLL_POS = Vector3.new(-2, -2, 83)
 
@@ -41,7 +40,6 @@ return function(_, api)
         if not hum then
             return
         end
-
         hum.PlatformStand = false
         hum.Sit = false
         pcall(function()
@@ -59,7 +57,7 @@ return function(_, api)
         end
 
         freeSelf()
-        local untilTime = os.clock() + 0.28
+        local untilTime = os.clock() + 0.25
         while os.clock() < untilTime do
             hrp = getHRP()
             local hum = getHumanoid()
@@ -91,80 +89,47 @@ return function(_, api)
         return nil
     end
 
-    local function canThrow(plr)
-        if not plr or plr == lp then
-            return false
+    local function workspaceCharacter(plr)
+        if not plr then
+            return nil
         end
-        local char = plr.Character
-        if not char then
-            return false
+        local model = workspace:FindFirstChild(plr.Name)
+        if model and model:IsA("Model") then
+            return model
         end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if not hum or not root or hum.Health <= 0 then
-            return false
-        end
-        if plr:GetAttribute("IsHugged") == true then
-            return false
-        end
-        if char:FindFirstChildWhichIsA("ForceField", true) or plr:FindFirstChildWhichIsA("ForceField", true) then
-            return false
-        end
-        return true
-    end
-
-    local function standNear(root)
-        if not root then
-            return false
-        end
-
-        local pos = root.Position
-        local offset = Vector3.new(0, 0, 2.2)
-        local look = CFrame.lookAt(pos + offset, pos)
-        return warpTo(look)
-    end
-
-    local function waitForHold(timeout)
-        local deadline = os.clock() + (timeout or 2)
-        while not holding and os.clock() < deadline do
-            task.wait()
-        end
-        return holding
+        return plr.Character
     end
 
     local function throwPlayer(plr)
-        if not canThrow(plr) then
+        if not plr or plr == lp then
             return false
         end
 
-        local char = plr.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not char or not root then
+        local target = workspaceCharacter(plr)
+        local root = target and target:FindFirstChild("HumanoidRootPart")
+        if not target or not root then
             return false
         end
 
         if holding then
             HugRequest:FireServer("throw")
-            task.wait(0.8)
+            task.wait(0.35)
         end
 
         freeSelf()
-        if not standNear(root) then
-            return false
-        end
+        warpTo(CFrame.lookAt(root.Position + Vector3.new(0, 0, 2.2), root.Position))
 
         holding = false
-        HugRequest:FireServer("tryGrab", char)
+        HugRequest:FireServer("tryGrab", target)
 
-        if not waitForHold(2.5) then
-            return false
+        local deadline = os.clock() + 1.5
+        while not holding and os.clock() < deadline do
+            task.wait()
         end
 
-        if not warpTo(CFrame.new(TROLL_POS)) then
-            return false
-        end
+        warpTo(CFrame.new(TROLL_POS))
         HugRequest:FireServer("throw")
-        task.wait(1.1)
+        task.wait(0.8)
         return true
     end
 
@@ -185,7 +150,7 @@ return function(_, api)
                         end
                         throwPlayer(plr)
                     end
-                    task.wait(0.25)
+                    task.wait(0.2)
                 end
             end)
         end)
