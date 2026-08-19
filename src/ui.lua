@@ -552,6 +552,8 @@ local VerifiedGames = {}
 -- Keep recently added games here so a cached gameslist.json still detects them.
 local ExtraKnownGames = {
     { game = "Build Anything", id = "125488740127641", status = "🟢" },
+    { game = "Dress to Impress", id = "110125451314286", status = "🟢" },
+    { game = "Dress to Impress", id = "15101393044", status = "🟢" },
 }
 
 local function placeIdKeyList(id)
