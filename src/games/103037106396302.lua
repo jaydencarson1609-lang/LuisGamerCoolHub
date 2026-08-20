@@ -11,7 +11,7 @@ return function(_, api)
     local lp = Players.LocalPlayer
     local HugRequest = ReplicatedStorage:WaitForChild("HugRemotes"):WaitForChild("HugRequest")
 
-    local TROLL_CF = CFrame.new(-90, -11, 113)
+    local TROLL_CF = CFrame.new(-150, -48, 112)
 
     local throwAll = false
     local selectedName = ""
@@ -136,7 +136,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.1 - Stay at troll pos + remotes")
+        tab.Text("Version: 1.2 - Troll pos -150, -48, 112")
         tab.Text("Thanks for using the hub!")
     end)
 end
