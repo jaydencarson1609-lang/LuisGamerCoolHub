@@ -5,75 +5,49 @@ LuisGamerCoolHub
 
 return function(_, api)
     local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
     local lp = Players.LocalPlayer
     local HugRequest = ReplicatedStorage:WaitForChild("HugRemotes"):WaitForChild("HugRequest")
-    local HugState = ReplicatedStorage:WaitForChild("HugRemotes"):WaitForChild("HugState")
 
-    local TROLL_POS = Vector3.new(-2, -2, 83)
+    local TROLL_CF = CFrame.new(-90, -11, 113)
 
     local throwAll = false
     local selectedName = ""
-    local holding = false
-
-    HugState.OnClientEvent:Connect(function(state)
-        if state == "started" then
-            holding = true
-        elseif state == "ended" or state == "hugEnded" or state == "rejected" then
-            holding = false
-        end
-    end)
+    local stayAtTroll = false
+    local stayConn
 
     local function getHRP()
         local char = lp.Character
         return char and char:FindFirstChild("HumanoidRootPart")
     end
 
-    local function getHumanoid()
-        local char = lp.Character
-        return char and char:FindFirstChildOfClass("Humanoid")
-    end
-
-    local function freeSelf()
-        local hum = getHumanoid()
-        if not hum then
-            return
-        end
-        hum.PlatformStand = false
-        hum.Sit = false
-        pcall(function()
-            hum:UnequipTools()
-        end)
-        pcall(function()
-            hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-        end)
-    end
-
-    local function warpTo(cf)
+    local function holdTrollPos()
         local hrp = getHRP()
         if not hrp then
-            return false
+            return
         end
+        hrp.CFrame = TROLL_CF
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+    end
 
-        freeSelf()
-        local untilTime = os.clock() + 0.25
-        while os.clock() < untilTime do
-            hrp = getHRP()
-            local hum = getHumanoid()
-            if not hrp then
-                return false
-            end
-            if hum then
-                hum.PlatformStand = false
-                hum.Sit = false
-            end
-            hrp.CFrame = cf
-            hrp.AssemblyLinearVelocity = Vector3.zero
-            hrp.AssemblyAngularVelocity = Vector3.zero
-            task.wait()
+    local function setStayAtTroll(on)
+        stayAtTroll = on == true
+        if stayConn then
+            stayConn:Disconnect()
+            stayConn = nil
         end
-        return true
+        if not stayAtTroll then
+            return
+        end
+        holdTrollPos()
+        stayConn = RunService.Heartbeat:Connect(function()
+            if stayAtTroll then
+                holdTrollPos()
+            end
+        end)
     end
 
     local function findPlayer(query)
@@ -89,48 +63,19 @@ return function(_, api)
         return nil
     end
 
-    local function workspaceCharacter(plr)
-        if not plr then
-            return nil
-        end
-        local model = workspace:FindFirstChild(plr.Name)
-        if model and model:IsA("Model") then
-            return model
-        end
-        return plr.Character
-    end
-
-    local function throwPlayer(plr)
+    local function throwWithRemotes(plr)
         if not plr or plr == lp then
-            return false
+            return
         end
 
-        local target = workspaceCharacter(plr)
-        local root = target and target:FindFirstChild("HumanoidRootPart")
-        if not target or not root then
-            return false
+        local target = workspace:FindFirstChild(plr.Name)
+        if not (target and target:IsA("Model")) then
+            return
         end
 
-        if holding then
-            HugRequest:FireServer("throw")
-            task.wait(0.35)
-        end
-
-        freeSelf()
-        warpTo(CFrame.lookAt(root.Position + Vector3.new(0, 0, 2.2), root.Position))
-
-        holding = false
         HugRequest:FireServer("tryGrab", target)
-
-        local deadline = os.clock() + 1.5
-        while not holding and os.clock() < deadline do
-            task.wait()
-        end
-
-        warpTo(CFrame.new(TROLL_POS))
+        task.wait(0.2)
         HugRequest:FireServer("throw")
-        task.wait(0.8)
-        return true
     end
 
     api.Tab("Main", function(tab)
@@ -138,6 +83,7 @@ return function(_, api)
 
         tab.Toggle("Throw All People", false, function(state)
             throwAll = state == true
+            setStayAtTroll(throwAll)
             if not throwAll then
                 return
             end
@@ -148,9 +94,9 @@ return function(_, api)
                         if not throwAll then
                             break
                         end
-                        throwPlayer(plr)
+                        throwWithRemotes(plr)
                     end
-                    task.wait(0.2)
+                    task.wait(0.15)
                 end
             end)
         end)
@@ -161,9 +107,17 @@ return function(_, api)
 
         tab.Button("Throw a selected player", function()
             local victim = findPlayer(selectedName)
-            if victim then
-                task.spawn(throwPlayer, victim)
+            if not victim then
+                return
             end
+            task.spawn(function()
+                setStayAtTroll(true)
+                throwWithRemotes(victim)
+                task.wait(0.4)
+                if not throwAll then
+                    setStayAtTroll(false)
+                end
+            end)
         end)
     end)
 
