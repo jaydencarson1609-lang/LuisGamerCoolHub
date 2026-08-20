@@ -136,6 +136,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
+        tab.Text("Version: 1.1 - Stay at troll pos + remotes")
         tab.Text("Thanks for using the hub!")
     end)
 end
