@@ -11,41 +11,51 @@ return function(_, api)
     local lp = Players.LocalPlayer
     local HugRequest = ReplicatedStorage:WaitForChild("HugRemotes"):WaitForChild("HugRequest")
 
-    local TROLL_CF = CFrame.new(-150, -48, 112)
-
     local throwAll = false
     local selectedName = ""
-    local stayAtTroll = false
+    local stayAtLava = false
     local stayConn
+
+    local function getLavaCFrame()
+        local lava = workspace:WaitForChild("Map"):WaitForChild("Lava")
+        if lava:IsA("BasePart") then
+            return lava.CFrame + Vector3.new(0, lava.Size.Y / 2 + 4, 0)
+        end
+        local part = lava:FindFirstChildWhichIsA("BasePart", true)
+        if part then
+            return part.CFrame + Vector3.new(0, part.Size.Y / 2 + 4, 0)
+        end
+        return CFrame.new(34, -46, 217)
+    end
 
     local function getHRP()
         local char = lp.Character
         return char and char:FindFirstChild("HumanoidRootPart")
     end
 
-    local function holdTrollPos()
+    local function holdLavaPos()
         local hrp = getHRP()
         if not hrp then
             return
         end
-        hrp.CFrame = TROLL_CF
+        hrp.CFrame = getLavaCFrame()
         hrp.AssemblyLinearVelocity = Vector3.zero
         hrp.AssemblyAngularVelocity = Vector3.zero
     end
 
-    local function setStayAtTroll(on)
-        stayAtTroll = on == true
+    local function setStayAtLava(on)
+        stayAtLava = on == true
         if stayConn then
             stayConn:Disconnect()
             stayConn = nil
         end
-        if not stayAtTroll then
+        if not stayAtLava then
             return
         end
-        holdTrollPos()
+        holdLavaPos()
         stayConn = RunService.Heartbeat:Connect(function()
-            if stayAtTroll then
-                holdTrollPos()
+            if stayAtLava then
+                holdLavaPos()
             end
         end)
     end
@@ -74,7 +84,6 @@ return function(_, api)
         end
 
         HugRequest:FireServer("tryGrab", target)
-        task.wait(0.2)
         HugRequest:FireServer("throw")
     end
 
@@ -83,7 +92,7 @@ return function(_, api)
 
         tab.Toggle("Throw All People", false, function(state)
             throwAll = state == true
-            setStayAtTroll(throwAll)
+            setStayAtLava(throwAll)
             if not throwAll then
                 return
             end
@@ -96,7 +105,7 @@ return function(_, api)
                         end
                         throwWithRemotes(plr)
                     end
-                    task.wait(0.15)
+                    task.wait()
                 end
             end)
         end)
@@ -111,11 +120,11 @@ return function(_, api)
                 return
             end
             task.spawn(function()
-                setStayAtTroll(true)
+                setStayAtLava(true)
                 throwWithRemotes(victim)
-                task.wait(0.4)
+                task.wait(0.15)
                 if not throwAll then
-                    setStayAtTroll(false)
+                    setStayAtLava(false)
                 end
             end)
         end)
@@ -136,7 +145,7 @@ return function(_, api)
     api.Tab("Credits", function(tab)
         tab.Text("LuisGamerCoolHub")
         tab.Text("Created by LuisGamerCool")
-        tab.Text("Version: 1.2 - Troll pos -150, -48, 112")
+        tab.Text("Version: 1.3 - Fast lava throws")
         tab.Text("Thanks for using the hub!")
     end)
 end
