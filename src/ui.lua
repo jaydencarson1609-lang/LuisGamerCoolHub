@@ -556,6 +556,7 @@ local ExtraKnownGames = {
     { game = "Dress to Impress", id = "15101393044", status = "🟢" },
     { game = "TROLL Hug Tower", id = "103037106396302", status = "🟢" },
     { game = "Brick Collectors", id = "131159351966135", status = "🟢" },
+    { game = "Clean the WORLD!", id = "105767799784652", status = "🟢" },
 }
 
 local function placeIdKeyList(id)
