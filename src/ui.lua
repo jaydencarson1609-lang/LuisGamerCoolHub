@@ -557,6 +557,7 @@ local ExtraKnownGames = {
     { game = "TROLL Hug Tower", id = "103037106396302", status = "🟢" },
     { game = "Brick Collectors", id = "131159351966135", status = "🟢" },
     { game = "Clean the WORLD!", id = "105767799784652", status = "🟢" },
+    { game = "Find and Snipe Brainrot", id = "122889506854558", status = "🟢" },
 }
 
 local function placeIdKeyList(id)
